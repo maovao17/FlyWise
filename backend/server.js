@@ -5,26 +5,35 @@ const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
-app.use(cors()); 
-app.use(express.json()); 
-const port = 5000; 
+app.use(cors()); // Enable Cross-Origin Resource Sharing
+app.use(express.json()); // Middleware to parse JSON request bodies
+const port = 5000; // Port for this main backend server
 
+// --- Environment Variables ---
 const AVIATIONSTACK_KEY = process.env.AVIATIONSTACK_API_KEY;
 
+// --- Database Connection Pool ---
 const pool = mariadb.createPool({
     host: process.env.DB_HOST, 
     port: process.env.DB_PORT || 3306,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    connectionLimit: 5 
+    connectionLimit: 5,
+    supportBigNumbers: true,
+    bigNumberStrings: true
 });
 
+// --- Helper Functions ---
+
+/**
+ * Calculates the great-circle distance between two points on Earth.
+ */
 function haversine(lat1, lon1, lat2, lon2) {
   function toRad(x) {
     return x * Math.PI / 180;
   }
-  const R = 6378; 
+  const R = 6378; // Earth radius in kilometers
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   lat1 = toRad(lat1);
@@ -32,12 +41,14 @@ function haversine(lat1, lon1, lat2, lon2) {
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; 
+  return R * c; // Distance in km
 }
 
-
+/**
+ * Asynchronously logs search analytics to the search_logs table (InnoDB).
+ */
 async function logSearchAnalytics(origin, dest, priority, results) {
-    if (!results || results.length === 0) return; 
+    if (!results || results.length === 0) return; // Don't log empty searches
 
     const min_price = Math.min(...results.map(f => f.cost_usd));
     const min_eco_score = Math.min(...results.map(f => f.eco_score));
