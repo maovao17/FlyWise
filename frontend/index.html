@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlyWise - Smart Flight Search</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>FlyWise ✈️</h1>
+        <p>Smart choices for flying. Find the perfect balance of cost, time, and eco-friendliness.</p>
+
+        <div class="search-form">
+            <div class="search-inputs">
+                <input type="text" id="from-input" placeholder="From (e.g., LHR)">
+                <input type="text" id="to-input" placeholder="To (e.g., JFK)">
+            </div>
+
+            <div class="priority-controls">
+                <span>Sort by:</span>
+                <label>
+                    <input type="radio" name="priority" value="cheapest" checked> Cheapest
+                </label>
+                <label>
+                    <input type="radio" name="priority" value="shortest"> Shortest
+                </label>
+                <label>
+                    <input type="radio" name="priority" value="eco"> Eco-Friendly
+                </label>
+            </div>
+
+            <button id="find-button">Find Flights</button>
+        </div>
+
+        <div id="results-container">
+            <div id="loading-indicator" class="hidden">Searching for flights...</div>
+        </div>
+
+        <div id="details-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>         <h2 id="modal-title">Flight Details</h2>      <div id="modal-body">                      </div>
+        </div>
+    </div>
+
+    </div>
+
+    <script src="./js/script.js"></script>
+</body>
+</html>

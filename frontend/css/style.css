@@ -1,0 +1,113 @@
+/* Basic Setup */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f4f7f6;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+h1 {
+    color: #005a8d;
+    margin-top: 0;
+}
+
+/* Search Form */
+.search-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.search-inputs input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box; /* Important for padding to work nicely */
+}
+
+.priority-controls {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: 15px;
+}
+
+.priority-controls span {
+    font-weight: 500;
+}
+
+#find-button {
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    font-weight: 600;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#find-button:hover {
+    background-color: #0056b3;
+}
+
+/* Results Area */
+#results-container {
+    margin-top: 30px;
+}
+
+#loading-indicator {
+    text-align: center;
+    font-size: 18px;
+    color: #555;
+    padding: 20px;
+}
+
+.flight-card {
+    background: #fdfdfd;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 20px;
+    align-items: center;
+}
+
+.flight-card h3 {
+    margin: 0;
+    color: #005a8d;
+    grid-column: 1 / -1; /* Span full width */
+}
+
+.flight-card .stat {
+    font-size: 14px;
+}
+
+.flight-card .stat strong {
+    display: block;
+    font-size: 18px;
+    color: #111;
+}
+
+/* Helper class */
+.hidden {
+    display: none;
+}
