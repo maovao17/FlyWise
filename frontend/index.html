@@ -1,51 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlyWise - Smart Flight Search</title>
-    <link rel="stylesheet" href="./css/style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FlyWise — Smart Flight Search</title>
+
+  <!-- Chart.js for insights -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+
+  <!-- Main styles -->
+  <link rel="stylesheet" href="./css/style.css" />
+
+  <!-- Fonts (system + fallback) -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Main script -->
+  <script src="./js/script.js" defer></script>
 </head>
 <body>
-
-    <div class="container">
-        <h1>FlyWise ✈️</h1>
-        <p>Smart choices for flying. Find the perfect balance of cost, time, and eco-friendliness.</p>
-
-        <div class="search-form">
-            <div class="search-inputs">
-                <input type="text" id="from-input" placeholder="From (e.g., LHR)">
-                <input type="text" id="to-input" placeholder="To (e.g., JFK)">
-            </div>
-
-            <div class="priority-controls">
-                <span>Sort by:</span>
-                <label>
-                    <input type="radio" name="priority" value="cheapest" checked> Cheapest
-                </label>
-                <label>
-                    <input type="radio" name="priority" value="shortest"> Shortest
-                </label>
-                <label>
-                    <input type="radio" name="priority" value="eco"> Eco-Friendly
-                </label>
-            </div>
-
-            <button id="find-button">Find Flights</button>
-        </div>
-
-        <div id="results-container">
-            <div id="loading-indicator" class="hidden">Searching for flights...</div>
-        </div>
-
-        <div id="details-modal" class="modal hidden">
-        <div class="modal-content">
-            <span class="modal-close">&times;</span>         <h2 id="modal-title">Flight Details</h2>      <div id="modal-body">                      </div>
-        </div>
+  <header class="site-header">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M2 12l20-8-8 20-2-8-10-4z"></path></svg>
+      </div>
+      <div>
+        <div class="brand-title">FlyWise</div>
+        <div class="brand-tag">Smart choices for flying ✈️</div>
+      </div>
     </div>
 
-    </div>
+    <nav class="nav-actions" aria-label="Primary">
+      <button id="demo-data-btn" class="chip" title="Use demo data">Demo data</button>
+      <a class="chip" href="#" id="about-link">About</a>
+    </nav>
 
-    <script src="./js/script.js"></script>
+    <!-- animated plane (pure CSS) -->
+    <div class="plane-hero" aria-hidden="true">
+      <div class="plane"></div>
+    </div>
+  </header>
+
+  <main class="container" id="main">
+    <section class="hero-card" aria-labelledby="hero-title">
+      <h1 id="hero-title">Find the best flight — price, time & eco</h1>
+      <p class="lead">Compare routes, see comfort scores, and predict fares — all in one beautiful dashboard.</p>
+
+      <form id="search-form" class="search-form" autocomplete="off" aria-label="Flight search">
+        <div class="inputs">
+          <div class="input-wrap">
+            <label for="from-input">From</label>
+            <input id="from-input" name="from" placeholder="Airport IATA (e.g., LHR)" aria-label="From airport">
+            <ul id="from-suggestions" class="suggestions" role="listbox"></ul>
+          </div>
+
+          <div class="input-wrap">
+            <label for="to-input">To</label>
+            <input id="to-input" name="to" placeholder="Destination IATA (e.g., JFK)" aria-label="To airport">
+            <ul id="to-suggestions" class="suggestions" role="listbox"></ul>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="priority" role="radiogroup" aria-label="Sort by">
+            <label><input type="radio" name="priority" value="cheapest" checked> Cheapest</label>
+            <label><input type="radio" name="priority" value="shortest"> Shortest</label>
+            <label><input type="radio" name="priority" value="eco"> Eco-Friendly</label>
+          </div>
+
+          <div class="actions">
+            <button id="find-button" type="submit" class="btn primary">Find flights</button>
+            <button id="clear-button" type="button" class="btn ghost">Clear</button>
+          </div>
+        </div>
+
+        <div class="search-meta">
+          <div class="meta-item">🔎 Instant search • Smart ranking</div>
+          <div class="meta-item">💡 Click a card for ML-predicted fare</div>
+        </div>
+      </form>
+    </section>
+
+    <section class="insights" aria-labelledby="insights-title">
+      <div class="insights-header">
+        <h2 id="insights-title">Insights</h2>
+        <div class="insights-sub">Top searched routes</div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="busiestRoutesChart" role="img" aria-label="Busiest routes chart"></canvas>
+      </div>
+    </section>
+
+    <section id="results-section" aria-live="polite">
+      <div id="loading-indicator" class="loader hidden" role="status" aria-hidden="true">
+        <div class="loader-plane"></div>
+        <div class="loader-text">Searching for best routes...</div>
+      </div>
+
+      <div id="results-container" class="results-grid" aria-label="Search results"></div>
+    </section>
+  </main>
+
+  <!-- modal -->
+  <div id="details-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-content" role="document">
+      <button class="modal-close" aria-label="Close">&times;</button>
+      <h3 id="modal-title">Flight details</h3>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- small toast container -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <!-- keyboard hint -->
+  <div class="keyboard-hint">Tip: Press <kbd>Enter</kbd> on a flight card to open details</div>
 </body>
 </html>

@@ -1,113 +1,203 @@
-/* Basic Setup */
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f4f7f6;
-    color: #333;
-    margin: 0;
-    padding: 20px;
+/* FlyWise - modern hackathon style (glassmorphism + subtle motion) */
+/* Uses Inter font loaded in HTML. Keep colors accessible. */
+
+:root{
+  --bg:#0f1724;            /* deep page background */
+  --card:#ffffff22;        /* translucent white */
+  --glass:#ffffff0f;
+  --accent:#007bff;
+  --accent-2:#005a8d;
+  --muted:#94a3b8;
+  --success:#16a34a;
+  --danger:#ef4444;
+  --glass-border: rgba(255,255,255,0.06);
+  --glass-shadow: 0 8px 30px rgba(2,6,23,0.6);
+  --radius:14px;
+  --glass-blur: 10px;
+  --glass-padding:18px;
+  --max-width:1100px;
+  --glass-contrast: rgba(255,255,255,0.02);
+  --ease:cubic-bezier(.2,.9,.3,1);
 }
 
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-    background: #ffffff;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+/* Reset-ish */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:
+    radial-gradient(1200px 400px at 10% 10%, rgba(0,90,141,0.08), transparent 10%),
+    radial-gradient(800px 300px at 95% 90%, rgba(0,123,255,0.03), transparent 10%),
+    linear-gradient(180deg,#f4f7f6 0%, #eef2f5 100%);
+  color:#0b1220;
+  font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  padding:28px;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
 }
 
-h1 {
-    color: #005a8d;
-    margin-top: 0;
+/* Header */
+.site-header{
+  position:fixed;
+  left:28px;
+  top:20px;
+  display:flex;
+  gap:18px;
+  align-items:center;
+  z-index:60;
+  background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.70));
+  border-radius: 12px;
+  padding:10px 14px;
+  box-shadow: 0 6px 20px rgba(10,20,40,0.08);
+  backdrop-filter: blur(6px);
 }
 
-/* Search Form */
-.search-inputs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    margin-bottom: 15px;
+.brand{display:flex;gap:10px;align-items:center}
+.brand .logo{
+  width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  color:white;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,0.12)
+}
+.brand-title{font-weight:700;font-size:15px}
+.brand-tag{font-size:12px;color:var(--muted)}
+
+/* plane hero */
+.plane-hero{position:absolute;right:-40px;top:-40px;opacity:0.06;pointer-events:none}
+.plane {width:180px;height:60px;background:linear-gradient(90deg,#e6f3ff00,#e6f3ff66);transform:rotate(-15deg);
+  mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="%23000" d="M2 12l20-8-8 20-2-8-10-4z"/></svg>') center/contain no-repeat;
+  filter: drop-shadow(0 8px 18px rgba(0,90,141,0.14));
 }
 
-.search-inputs input {
-    width: 100%;
-    padding: 12px;
-    font-size: 16px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    box-sizing: border-box; /* Important for padding to work nicely */
+/* container main card */
+.container{
+  width:100%;
+  max-width:var(--max-width);
+  margin:26px auto;
+  padding:28px;
+  border-radius:16px;
+  background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.98));
+  box-shadow: var(--glass-shadow);
+  position:relative;
 }
 
-.priority-controls {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    margin-bottom: 20px;
-    font-size: 15px;
+/* hero card */
+.hero-card{
+  padding:18px;
+  border-radius:12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.6));
+  margin-bottom:22px;
+  border:1px solid var(--glass-border);
+  display:grid;
+  gap:12px;
 }
 
-.priority-controls span {
-    font-weight: 500;
+h1{margin:0;font-size:22px;color:var(--accent-2)}
+.lead{margin:0;color:var(--muted);font-size:14px}
+
+/* search form */
+.search-form{
+  margin-top:8px;
 }
 
-#find-button {
-    width: 100%;
-    padding: 15px;
-    font-size: 18px;
-    font-weight: 600;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.2s;
+.inputs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-bottom:12px;
 }
 
-#find-button:hover {
-    background-color: #0056b3;
+.input-wrap{position:relative}
+.input-wrap label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+.input-wrap input{
+  width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(15,20,36,0.06);
+  background:linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.9));
+  font-size:15px;outline:none;transition:box-shadow .18s var(--ease),transform .18s var(--ease);
 }
+.input-wrap input:focus{box-shadow:0 8px 20px rgba(0,90,141,0.08);transform:translateY(-2px);border-color:var(--accent)}
 
-/* Results Area */
-#results-container {
-    margin-top: 30px;
+.suggestions{
+  position:absolute;left:0;right:0;top:100%;margin-top:8px;background:white;border-radius:10px;padding:6px 6px;box-shadow:0 8px 30px rgba(12,20,40,0.06);
+  list-style:none;max-height:220px;overflow:auto;border:1px solid rgba(0,0,0,0.04);display:none;z-index:40;
 }
+.suggestions.show{display:block}
+.suggestions li{padding:8px 10px;border-radius:8px;cursor:pointer}
+.suggestions li:hover{background:rgba(0,90,141,0.06)}
 
-#loading-indicator {
-    text-align: center;
-    font-size: 18px;
-    color: #555;
-    padding: 20px;
+/* controls row */
+.controls{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.priority{display:flex;gap:12px;align-items:center}
+.priority label{font-size:14px;color:var(--muted)}
+.priority input{margin-right:6px}
+.actions{display:flex;gap:10px}
+.btn{padding:10px 14px;border-radius:10px;border:none;font-weight:600;cursor:pointer;transition:transform .12s var(--ease)}
+.btn:active{transform:translateY(1px)}
+.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white;box-shadow:0 8px 24px rgba(0,90,141,0.12)}
+.ghost{background:transparent;border:1px solid rgba(12,20,40,0.06);color:var(--accent-2);}
+
+/* meta row */
+.search-meta{margin-top:12px;display:flex;gap:12px;color:var(--muted);font-size:13px}
+
+/* insights section */
+.insights{margin-top:8px;padding:18px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.95));border:1px solid var(--glass-border)}
+.insights-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.chart-wrap{height:220px;position:relative}
+
+/* results */
+#results-section{margin-top:18px}
+.loader{display:flex;align-items:center;gap:12px;padding:18px;border-radius:12px;border:1px dashed rgba(10,20,40,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.85));}
+.loader-plane{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#e6f3ff,#cfeeff);display:flex;align-items:center;justify-content:center;position:relative;animation:fly 1.6s linear infinite}
+.loader-plane::after{content:"✈️";font-size:20px;display:block}
+.loader-text{font-size:15px;color:var(--muted)}
+@keyframes fly{0%{transform:translateX(0)}50%{transform:translateX(6px)}100%{transform:translateX(0)}}
+
+/* results grid & flight card */
+.results-grid{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:14px;
+  margin-top:12px;
 }
-
-.flight-card {
-    background: #fdfdfd;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 15px;
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
-    gap: 20px;
-    align-items: center;
+.flight-card{
+  background:linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.7));
+  padding:var(--glass-padding);
+  border-radius:12px;border:1px solid var(--glass-border);
+  box-shadow:0 10px 30px rgba(8,12,20,0.04);
+  display:flex;flex-direction:column;gap:8px;cursor:pointer;transform:translateY(6px);opacity:0;
+  transition:transform .36s var(--ease),box-shadow .18s var(--ease),opacity .36s var(--ease);
 }
+.flight-card.visible{transform:none;opacity:1}
+.flight-card:hover{box-shadow:0 18px 40px rgba(8,12,20,0.08);transform:translateY(-6px)}
+.flight-card h3{margin:0;color:var(--accent-2);font-size:16px}
+.flight-card .meta-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted)}
+.flight-card .big{font-weight:700;font-size:18px;color:#0b1220}
 
-.flight-card h3 {
-    margin: 0;
-    color: #005a8d;
-    grid-column: 1 / -1; /* Span full width */
+/* eco rating pill */
+.pill{display:inline-flex;gap:8px;align-items:center;padding:6px 8px;border-radius:999px;background:rgba(0,0,0,0.03);font-weight:600}
+
+/* modal */
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,10,20,0.45);z-index:80}
+.modal.hidden{display:none}
+.modal-content{width:94%;max-width:720px;background:white;border-radius:12px;padding:20px;position:relative;transform:scale(.98);opacity:0;transition:transform .22s var(--ease),opacity .22s var(--ease)}
+.modal.open .modal-content{transform:none;opacity:1}
+.modal-close{position:absolute;right:14px;top:10px;border:none;background:transparent;font-size:26px;color:var(--muted);cursor:pointer}
+
+/* toast */
+.toast{position:fixed;right:22px;bottom:22px;background:var(--accent-2);color:white;padding:12px 16px;border-radius:10px;box-shadow:0 10px 30px rgba(12,20,40,0.2)}
+.toast.hidden{display:none}
+
+/* keyboard hint */
+.keyboard-hint{position:fixed;left:22px;bottom:22px;background:rgba(255,255,255,0.9);padding:8px 10px;border-radius:10px;font-size:13px;color:var(--muted);box-shadow:0 6px 18px rgba(8,12,20,0.05)}
+
+/* responsive */
+@media (max-width:1000px){
+  .results-grid{grid-template-columns:repeat(2,1fr)}
+  .plane-hero{display:none}
 }
-
-.flight-card .stat {
-    font-size: 14px;
-}
-
-.flight-card .stat strong {
-    display: block;
-    font-size: 18px;
-    color: #111;
-}
-
-/* Helper class */
-.hidden {
-    display: none;
+@media (max-width:640px){
+  .inputs{grid-template-columns:1fr}
+  .results-grid{grid-template-columns:1fr}
+  .site-header{display:none}
+  .container{padding:18px}
 }

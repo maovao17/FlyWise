@@ -14,14 +14,16 @@ const AVIATIONSTACK_KEY = process.env.AVIATIONSTACK_API_KEY;
 
 // --- Database Connection Pool ---
 const pool = mariadb.createPool({
-    host: process.env.DB_HOST, 
+    host: process.env.DB_HOST, // Should be 'localhost' or 'host.docker.internal'
     port: process.env.DB_PORT || 3306,
     user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
+    password: process.env.DB_PASSWORD, // Use your strong password
     database: process.env.DB_NAME,
-    connectionLimit: 5,
+    connectionLimit: 5, // Max number of connections in the pool
+    // --- FIX FOR BigInt ERROR ---
     supportBigNumbers: true,
     bigNumberStrings: true
+    // ---------------------------
 });
 
 // --- Helper Functions ---
@@ -50,8 +52,12 @@ function haversine(lat1, lon1, lat2, lon2) {
 async function logSearchAnalytics(origin, dest, priority, results) {
     if (!results || results.length === 0) return; // Don't log empty searches
 
-    const min_price = Math.min(...results.map(f => f.cost_usd));
-    const min_eco_score = Math.min(...results.map(f => f.eco_score));
+    // Handle potential empty arrays after filtering
+    const costs = results.map(f => f.cost_usd);
+    const scores = results.map(f => f.eco_score);
+    
+    const min_price = costs.length > 0 ? Math.min(...costs) : 0;
+    const min_eco_score = scores.length > 0 ? Math.min(...scores) : 0;
     const result_count = results.length;
 
     let conn;
@@ -177,8 +183,6 @@ app.get('/api/routes', async (req, res) => {
         if (apiData.data && apiData.data.length > 0) {
             apiData.data.forEach((flight, i) => {
                 // 3. Merge API data with calculated/mocked data
-
-                // Mock price and duration (as free API lacks this)
                 const baseDuration = (distanceKm / 800) + Math.random() * 2; // Approx speed 800km/h + variability
                 const baseCost = distanceKm * (Math.random() * (0.5 - 0.1) + 0.1); // $0.1 to $0.5 per km
 
