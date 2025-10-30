@@ -20,21 +20,13 @@ const pool = mariadb.createPool({
     password: process.env.DB_PASSWORD, // Use your strong password
     database: process.env.DB_NAME,
     connectionLimit: 5, // Max number of connections in the pool
-    // --- FIX FOR BigInt ERROR ---
-    supportBigNumbers: true,
-    bigNumberStrings: true
-    // ---------------------------
+    supportBigNumbers: true, // FIX for BigInt error
+    bigNumberStrings: true // FIX for BigInt error
 });
 
 // --- Helper Functions ---
-
-/**
- * Calculates the great-circle distance between two points on Earth.
- */
 function haversine(lat1, lon1, lat2, lon2) {
-  function toRad(x) {
-    return x * Math.PI / 180;
-  }
+  function toRad(x) { return x * Math.PI / 180; }
   const R = 6378; // Earth radius in kilometers
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
@@ -46,20 +38,13 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * c; // Distance in km
 }
 
-/**
- * Asynchronously logs search analytics to the search_logs table (InnoDB).
- */
 async function logSearchAnalytics(origin, dest, priority, results) {
-    if (!results || results.length === 0) return; // Don't log empty searches
-
-    // Handle potential empty arrays after filtering
-    const costs = results.map(f => f.cost_usd);
+    if (!results || results.length === 0) return;
+    const costs = results.map(f => f.cost_inr); // Use cost_inr
     const scores = results.map(f => f.eco_score);
-    
     const min_price = costs.length > 0 ? Math.min(...costs) : 0;
     const min_eco_score = scores.length > 0 ? Math.min(...scores) : 0;
     const result_count = results.length;
-
     let conn;
     try {
         conn = await pool.getConnection();
@@ -67,21 +52,17 @@ async function logSearchAnalytics(origin, dest, priority, results) {
             INSERT INTO search_logs (origin_iata, dest_iata, priority_searched, min_price, min_eco_score, result_count, search_timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
+        // Note: min_price is now in INR
         await conn.query(sql, [origin, dest, priority, min_price, min_eco_score, result_count, new Date()]);
     } catch (err) {
-        console.error("Analytics Log Error:", err.message); // Log error but don't crash request
+        console.error("Analytics Log Error:", err.message);
     } finally {
         if (conn) conn.release();
     }
 }
 
 // --- API Endpoints ---
-
-/**
- * @route GET /api/test
- * @desc Test database connection.
- */
-app.get('/api/test', async (req, res) => {
+app.get('/api/test', async (req, res) => { /* ... (no change) ... */ 
     let conn;
     try {
         conn = await pool.getConnection();
@@ -94,16 +75,9 @@ app.get('/api/test', async (req, res) => {
         if (conn) conn.release();
     }
 });
-
-/**
- * @route GET /api/airports
- * @desc Get airport suggestions based on query.
- * @param {string} q - Search query (name, city, or IATA).
- */
-app.get('/api/airports', async (req, res) => {
+app.get('/api/airports', async (req, res) => { /* ... (no change) ... */
     const searchQuery = req.query.q;
     if (!searchQuery) return res.json([]);
-
     let conn;
     try {
         conn = await pool.getConnection();
@@ -127,14 +101,17 @@ app.get('/api/airports', async (req, res) => {
 /**
  * @route GET /api/routes
  * @desc Fetch flight routes, merge with local data, calculate scores, and sort.
- * @param {string} from - Origin IATA code.
- * @param {string} to - Destination IATA code.
- * @param {string} priority - Sorting preference ('cheapest', 'shortest', 'eco').
  */
 app.get('/api/routes', async (req, res) => {
-    const { from: fromIata, to: toIata, priority = 'cheapest' } = req.query;
-    if (!fromIata || !toIata) {
-        return res.status(400).json({ message: "Missing 'from' or 'to' IATA code" });
+    // --- UPDATED: Get days_left from query ---
+    const { from: fromIata, to: toIata, priority = 'cheapest', days_left: daysLeft } = req.query;
+
+    if (!fromIata || !toIata || !daysLeft) {
+        return res.status(400).json({ message: "Missing 'from', 'to', or 'days_left' parameter" });
+    }
+    const daysLeftNum = parseInt(daysLeft, 10);
+    if (isNaN(daysLeftNum) || daysLeftNum < 1) {
+         return res.status(400).json({ message: "Invalid 'days_left' parameter" });
     }
 
     let conn;
@@ -158,9 +135,8 @@ app.get('/api/routes', async (req, res) => {
             LEFT JOIN planes p ON FIND_IN_SET(p.iata, REPLACE(r.equipment, ' ', ',')) > 0
             WHERE r.source_airport = ? AND r.dest_airport = ?
         `, [fromIata, toIata]);
-        const avgFuelFactor = (routeInfoRows && routeInfoRows.avgFuelFactor) ? Number(routeInfoRows.avgFuelFactor) : 1.2; // Ensure it's a number
+        const avgFuelFactor = (routeInfoRows && routeInfoRows.avgFuelFactor) ? Number(routeInfoRows.avgFuelFactor) : 1.2;
 
-        // Release DB connection before external API call
         if (conn) conn.release();
         conn = null;
 
@@ -168,8 +144,8 @@ app.get('/api/routes', async (req, res) => {
         const apiParams = {
             access_key: AVIATIONSTACK_KEY,
             dep_iata: fromIata,
-            arr_iata: toIata, // Note: May not work well on free plan
-            limit: 25 // Request more flights to have options
+            arr_iata: toIata,
+            limit: 25
         };
         const apiResponse = await axios.get('http://api.aviationstack.com/v1/flights', { params: apiParams });
         const apiData = apiResponse.data;
@@ -183,8 +159,9 @@ app.get('/api/routes', async (req, res) => {
         if (apiData.data && apiData.data.length > 0) {
             apiData.data.forEach((flight, i) => {
                 // 3. Merge API data with calculated/mocked data
-                const baseDuration = (distanceKm / 800) + Math.random() * 2; // Approx speed 800km/h + variability
-                const baseCost = distanceKm * (Math.random() * (0.5 - 0.1) + 0.1); // $0.1 to $0.5 per km
+                const baseDuration = (distanceKm / 800) + Math.random() * 2;
+                // --- MOCK COST IN INR (e.g., ~₹8 per km) ---
+                const baseCost = distanceKm * (Math.random() * (10 - 6) + 6); 
 
                 processedFlights.push({
                     id: i,
@@ -193,17 +170,17 @@ app.get('/api/routes', async (req, res) => {
                     departure_time: flight.departure?.scheduled || 'N/A',
                     arrival_time: flight.arrival?.scheduled || 'N/A',
                     duration_hours: Math.round(baseDuration * 10) / 10,
-                    cost_usd: Math.round(baseCost * 100) / 100,
-                    eco_score: Math.round((distanceKm * avgFuelFactor) * (Math.random() * (1.1 - 0.9) + 0.9)), // distance * fuel * variability
-                    origin_comfort_score: origin.metadata?.comfortScore || 4.0, // Use ?. optional chaining
+                    cost_inr: Math.round(baseCost), // --- CHANGED TO cost_inr ---
+                    eco_score: Math.round((distanceKm * avgFuelFactor) * (Math.random() * (1.1 - 0.9) + 0.9)),
+                    origin_comfort_score: origin.metadata?.comfortScore || 4.0,
                     dest_comfort_score: destination.metadata?.comfortScore || 4.0,
 
-                    // --- Fields needed for prediction service ---
+                    // --- Fields needed for prediction service (NOW REAL) ---
                     Source: fromIata,
                     Destination: toIata,
-                    Class: 'Economy', // Hardcoded default
-                    Days_left: 30, // Hardcoded default - NEEDS improvement for real use
-                    Total_stops_Num: 0 // Hardcoded default (non-stop) - API doesn't provide easily
+                    Class: 'Economy',
+                    Days_left: daysLeftNum, // --- USE REAL daysLeftNum ---
+                    Total_stops_Num: 0 // Hardcoded default
                 });
             });
         }
@@ -214,18 +191,18 @@ app.get('/api/routes', async (req, res) => {
         } else if (priority === 'eco') {
             processedFlights.sort((a, b) => a.eco_score - b.eco_score);
         } else { // Default to 'cheapest'
-            processedFlights.sort((a, b) => a.cost_usd - b.cost_usd);
+            processedFlights.sort((a, b) => a.cost_inr - b.cost_inr); // --- SORT BY cost_inr ---
         }
 
         // 5. Log search analytics (asynchronously)
         logSearchAnalytics(fromIata, toIata, priority, processedFlights);
 
         // 6. Send response
-        res.json(processedFlights.slice(0, 10)); // Send top 10 results
+        res.json(processedFlights.slice(0, 10));
 
     } catch (err) {
         console.error("ERROR in /api/routes:", err);
-        if (conn) { // Ensure connection is released on error too
+        if (conn) {
             try { await conn.release(); } catch (releaseErr) { console.error("Error releasing connection on error:", releaseErr); }
         }
         res.status(500).json({ message: `Query failed: ${err.message}` });
@@ -260,7 +237,6 @@ app.get('/api/insights/busiest-routes', async (req, res) => {
 /**
  * @route POST /api/predict-fare
  * @desc Proxy endpoint to call the Python ML prediction service.
- * @body JSON object with flight features needed by the model.
  */
 app.post('/api/predict-fare', async (req, res) => {
     const flightData = req.body;
@@ -284,11 +260,9 @@ app.post('/api/predict-fare', async (req, res) => {
 // --- Start Server ---
 app.listen(port, () => {
     console.log(`Main backend server running on http://localhost:${port}`);
-    // Check if API key is loaded
     if (!AVIATIONSTACK_KEY) {
         console.warn("WARNING: AVIATIONSTACK_API_KEY is not set in the .env file!");
     }
-    // Check DB host
     if (!process.env.DB_HOST) {
          console.warn("WARNING: DB_HOST is not set in the .env file! Using default (might fail).");
     }

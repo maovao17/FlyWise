@@ -1,393 +1,360 @@
 /* FlyWise JS: modern UX, animations, suggestions, chart, modal, graceful fallback */
-/* Assumes Chart.js loaded (deferred) and DOMContentLoaded by 'defer' script loading. */
-
 (() => {
   // ---------- Config ----------
-  const API_BASE = 'http://127.0.0.1:5000/api'; // keep for your backend
-  const USE_DEMO = false; // toggled by demo button; initial helpful fallback true
-  let demoMode = USE_DEMO;
+  const API_BASE = 'http://127.0.0.1:5000/api';
+  let chartInstance = null; // To hold the chart
 
-  // small list of IATA codes + names for suggestions (extend as needed)
-  async function fetchAirportSuggestions(query) {
-  try {
-    const resp = await fetch(`${API_BASE}/airports?q=${encodeURIComponent(query)}`);
-    if (!resp.ok) throw new Error('Bad response');
-    return await resp.json();
-  } catch {
-    return []; // fallback empty
+  // ---------- DOM Elements ----------
+  const fromInput = document.getElementById('from-input');
+  const toInput = document.getElementById('to-input');
+  const dateInput = document.getElementById('date-input'); // <-- NEW DATE INPUT
+  const fromSug = document.getElementById('from-sug');
+  const toSug = document.getElementById('to-sug');
+  const findButton = document.getElementById('find-button');
+  const resultsContainer = document.getElementById('results-container');
+  const loadingIndicator = document.getElementById('loading-indicator');
+  const modal = document.getElementById('details-modal');
+  const modalClose = document.querySelector('.modal-close');
+  const modalTitle = document.getElementById('modal-title');
+  const modalBody = document.getElementById('modal-body');
+  const toast = document.getElementById('toast-notify');
+  const chartCanvas = document.getElementById('busiestRoutesChart');
+
+  // Set default date to tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  dateInput.value = tomorrow.toISOString().split('T')[0];
+  dateInput.min = tomorrow.toISOString().split('T')[0];
+
+  // ---------- Toast Notifier ----------
+  function showToast(message, type = 'danger') {
+    toast.textContent = message;
+    toast.className = 'toast show';
+    toast.classList.add(type); // 'danger' or 'success'
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3000);
   }
-}
 
-function showSuggestions(listEl, inputEl) {
-  const q = inputEl.value.trim();
-  listEl.innerHTML = '';
-  if (!q) { listEl.classList.remove('show'); return; }
+  // ---------- Airport Suggestions ----------
+  async function fetchAirportSuggestions(query) {
+    try {
+      const resp = await fetch(`${API_BASE}/airports?q=${encodeURIComponent(query)}`);
+      if (!resp.ok) throw new Error('Bad response');
+      return await resp.json();
+    } catch (err) {
+      console.error('Failed to fetch suggestions:', err);
+      return []; // fallback empty
+    }
+  }
 
-  fetchAirportSuggestions(q).then(matches => {
-    if (!matches.length) { listEl.classList.remove('show'); return; }
+  function showSuggestions(listEl, inputEl, matches) {
+    listEl.innerHTML = '';
+    if (!matches.length) {
+      listEl.classList.remove('show');
+      return;
+    }
     matches.forEach(m => {
       const li = document.createElement('li');
       li.innerHTML = `<strong>${m.iata}</strong> — ${m.name}, ${m.city}`;
       li.addEventListener('click', () => {
-        inputEl.value = m.iata;
+        inputEl.value = m.iata; // Set IATA code on click
         listEl.classList.remove('show');
       });
       listEl.appendChild(li);
     });
     listEl.classList.add('show');
-  });
-}
-  // demo fallback flights (used if API fails)
-  const DEMO_FLIGHTS = (from, to) => ([
-    { airline: 'AirSmart', flight_number: 'AS 214', cost_usd: 320, duration_hours: 7.3, eco_score: 2.1, origin_comfort_score: 4.2, dest_comfort_score: 3.9, departure_time: new Date(Date.now()+36*3600e3).toISOString(), arrival_time: new Date(Date.now()+36*3600e3 + 7.3*3600e3).toISOString(), Days_left: 30, Total_stops_Num: 0, Airline: 'AirSmart', Source: from, Destination: to, Class: 'Economy' },
-    { airline: 'GreenWings', flight_number: 'GW 77', cost_usd: 395, duration_hours: 6.8, eco_score: 1.2, origin_comfort_score: 4.6, dest_comfort_score: 4.1, departure_time: new Date(Date.now()+48*3600e3).toISOString(), arrival_time: new Date(Date.now()+48*3600e3 + 6.8*3600e3).toISOString(), Days_left: 45, Total_stops_Num: 1, Airline: 'GreenWings', Source: from, Destination: to, Class: 'Economy' },
-    { airline: 'BudgetAir', flight_number: 'BA 545', cost_usd: 260, duration_hours: 11.4, eco_score: 3.8, origin_comfort_score: 3.4, dest_comfort_score: 3.2, departure_time: new Date(Date.now()+24*3600e3).toISOString(), arrival_time: new Date(Date.now()+24*3600e3 + 11.4*3600e3).toISOString(), Days_left: 7, Total_stops_Num: 2, Airline: 'BudgetAir', Source: from, Destination: to, Class: 'Economy' }
-  ]);
-
-  // ---------- Elements ----------
-  const fromInput = document.getElementById('from-input');
-  const toInput = document.getElementById('to-input');
-  const findButton = document.getElementById('find-button');
-  const clearButton = document.getElementById('clear-button');
-  const resultsContainer = document.getElementById('results-container');
-  const loadingIndicator = document.getElementById('loading-indicator');
-  const modal = document.getElementById('details-modal');
-  const modalContent = modal.querySelector('.modal-content');
-  const modalClose = modal.querySelector('.modal-close');
-  const modalTitle = document.getElementById('modal-title');
-  const modalBody = document.getElementById('modal-body');
-  const toast = document.getElementById('toast');
-  const demoBtn = document.getElementById('demo-data-btn');
-
-  const fromSug = document.getElementById('from-suggestions');
-  const toSug = document.getElementById('to-suggestions');
-
-  // Chart-related
-  let busiestChart = null;
-
-  // ---------- Utilities ----------
-  const el = (tag, cls = '') => {
-    const d = document.createElement(tag);
-    if (cls) d.className = cls;
-    return d;
-  };
-
-  function showToast(msg, ms = 3500) {
-    toast.textContent = msg;
-    toast.classList.remove('hidden');
-    setTimeout(() => toast.classList.add('hidden'), ms);
   }
 
-  function showLoading(on = true) {
-    if (on) {
-      loadingIndicator.classList.remove('hidden');
-      loadingIndicator.setAttribute('aria-hidden', 'false');
-    } else {
+  // Event listeners for suggestion inputs
+  fromInput.addEventListener('input', () => {
+    const q = fromInput.value.trim();
+    if (q.length < 2) { fromSug.classList.remove('show'); return; }
+    fetchAirportSuggestions(q).then(matches => showSuggestions(fromSug, fromInput, matches));
+  });
+
+  toInput.addEventListener('input', () => {
+    const q = toInput.value.trim();
+    if (q.length < 2) { toSug.classList.remove('show'); return; }
+    fetchAirportSuggestions(q).then(matches => showSuggestions(toSug, toInput, matches));
+  });
+
+  // ---------- Main Search ----------
+  async function handleSearch() {
+    const fromIata = fromInput.value.trim().toUpperCase();
+    const toIata = toInput.value.trim().toUpperCase();
+    const departureDate = dateInput.value; // <-- GET DATE
+    const priority = document.querySelector('input[name="priority"]:checked').value;
+
+    if (!fromIata || !toIata) {
+      showToast('Please enter both origin and destination.');
+      return;
+    }
+    
+    // --- CALCULATE DAYS_LEFT ---
+    if (!departureDate) {
+      showToast('Please select a departure date.');
+      return;
+    }
+    const today = new Date();
+    const depDate = new Date(departureDate);
+    today.setHours(0, 0, 0, 0);
+    depDate.setHours(0, 0, 0, 0);
+    const diffTime = depDate - today;
+    const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (daysLeft < 1) {
+      showToast('Please select a future date.');
+      return;
+    }
+    // --- END CALCULATION ---
+
+    loadingIndicator.classList.remove('hidden');
+    resultsContainer.innerHTML = '';
+    findButton.disabled = true;
+    findButton.textContent = 'Searching...';
+
+    // --- PASS DAYS_LEFT TO API ---
+    const apiUrl = `${API_BASE}/routes?from=${fromIata}&to=${toIata}&priority=${priority}&days_left=${daysLeft}`;
+
+    try {
+      const response = await fetch(apiUrl);
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.statusText}`);
+      }
+      const flights = await response.json();
+
+      if (!Array.isArray(flights)) {
+        throw new Error('Invalid response from server.');
+      }
+      if (flights.length === 0) {
+        resultsContainer.innerHTML = '<p class="loader-text">No flights found for this route.</p>';
+      } else {
+        flights.forEach(flight => {
+          const flightCard = createFlightCard(flight);
+          resultsContainer.appendChild(flightCard);
+        });
+        // Reload insights after a successful search to log the new data
+        loadInsights();
+      }
+    } catch (error) {
+      console.error('Error fetching flights:', error);
+      showToast('Error loading flights. Please try again.');
+    } finally {
       loadingIndicator.classList.add('hidden');
-      loadingIndicator.setAttribute('aria-hidden', 'true');
+      findButton.disabled = false;
+      findButton.textContent = 'Find Flights';
     }
   }
 
-  function mapStopsNumToString(stopsNum) {
-    if (stopsNum === 0) return 'non-stop';
-    if (stopsNum === 1) return '1-stop';
-    return '2+-stops';
+  findButton.addEventListener('click', handleSearch);
+
+  // ---------- Insights Chart ----------
+  async function loadInsights() {
+    try {
+      const response = await fetch(`${API_BASE}/insights/busiest-routes`);
+      if (!response.ok) return; // Fail silently
+      const data = await response.json();
+
+      if (!data || data.length === 0) {
+        console.log('No insights data to display yet.');
+        return;
+      }
+      const labels = data.map(route => `${route.origin_iata} → ${route.dest_iata}`);
+      const values = data.map(route => route.search_count);
+
+      if (chartInstance) {
+        chartInstance.destroy(); // Destroy old chart before creating new one
+      }
+
+      chartInstance = new Chart(chartCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Total Searches',
+            data: values,
+            backgroundColor: 'rgba(0, 123, 255, 0.6)',
+            borderColor: 'rgba(0, 123, 255, 1)',
+            borderWidth: 1,
+            borderRadius: 5,
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1, color: 'white' },
+              grid: { color: 'rgba(255, 255, 255, 0.1)' }
+            },
+            x: {
+              ticks: { color: 'white' },
+              grid: { color: 'rgba(255, 255, 255, 0.05)' }
+            }
+          },
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#0b1220',
+                titleColor: 'white',
+                bodyColor: 'white',
+                padding: 10
+            }
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error loading insights:', error);
+    }
   }
 
+  // ---------- Flight Card & Modal ----------
+  function createFlightCard(flight) {
+    const card = document.createElement('div');
+    card.className = 'flight-card';
+
+    // --- USE ₹ FOR RUPEES ---
+    const cost = Math.round(flight.cost_inr); 
+    const duration = flight.duration_hours.toFixed(1);
+    const eco = Math.round(flight.eco_score);
+    const comfort = (flight.origin_comfort_score || 4.0).toFixed(1);
+
+    card.innerHTML = `
+      <div class="card-header">
+        <div>
+          <div class="card-airline">${flight.airline}</div>
+          <div class="card-flight-num">${flight.flight_number || 'N/A'}</div>
+        </div>
+        <div class="pill">Est: ₹${cost}</div>
+      </div>
+      <div class="card-main">
+        <div class="route-col">
+          <div class="iata">${flight.Source}</div>
+          <div class="city">${comfort} Comfort</div>
+        </div>
+        <div class="route-arrow">→</div>
+        <div class="route-col" style="text-align: right;">
+          <div class="iata">${flight.Destination}</div>
+          <div class="city">${flight.dest_comfort_score.toFixed(1)} Comfort</div>
+        </div>
+      </div>
+      <div class="card-stats">
+        <div class="stat-item">Duration<strong>${duration} hrs</strong></div>
+        <div class="stat-item">Eco Score<strong>${eco}</strong></div>
+      </div>
+    `;
+    card.addEventListener('click', () => showFlightDetails(flight));
+    return card;
+  }
+
+  async function showFlightDetails(flight) {
+    if (!modal || !modalTitle || !modalBody) {
+      console.error('Cannot show details, modal elements not found.');
+      return;
+    }
+
+    const depTime = flight.departure_time ? new Date(flight.departure_time).toLocaleString() : 'N/A';
+    const arrTime = flight.arrival_time ? new Date(flight.arrival_time).toLocaleString() : 'N/A';
+
+    modalTitle.textContent = `${flight.airline} (${flight.flight_number || 'N/A'})`;
+    modalBody.innerHTML = `
+      <p><strong>Route:</strong> ${flight.Source} → ${flight.Destination}</p>
+      <p><strong>Departure:</strong> ${depTime}</p>
+      <p><strong>Arrival:</strong> ${arrTime}</p>
+      <hr>
+      <p><strong>Est. Current Cost (API):</strong> ₹${Math.round(flight.cost_inr)}</p>
+      <p><strong>Duration:</strong> ${flight.duration_hours} hours</p>
+      <p><strong>Eco Score:</strong> ${flight.eco_score} (Lower is better)</p>
+      <p><strong>Origin Comfort:</strong> ${flight.origin_comfort_score} / 5.0</p>
+      <p><strong>Dest. Comfort:</strong> ${flight.dest_comfort_score} / 5.0</p>
+      <hr>
+      <p id="prediction-result"><strong>Typical Fare (ML Model):</strong> Fetching...</p>
+    `;
+    modal.classList.add('open');
+    modal.classList.remove('hidden');
+
+    // --- Prepare data for prediction service ---
+    // Now uses the REAL Days_left
+    const predictionInput = {
+      Duration_in_hours: flight.duration_hours,
+      Days_left: flight.Days_left, // <-- USES REAL VALUE
+      Journey_Month: depTime !== 'N/A' ? new Date(flight.departure_time).getMonth() + 1 : null,
+      Journey_DayOfWeek: depTime !== 'N/A' ? new Date(flight.departure_time).getDay() : null, // (Sun=0, Mon=1... adjust if model needs Mon=0)
+      Departure_Num: depTime !== 'N/A' ? mapTimeToNum(new Date(flight.departure_time).getHours()) : null,
+      Arrival_Num: arrTime !== 'N/A' ? mapTimeToNum(new Date(flight.arrival_time).getHours()) : null,
+      Total_stops: mapStopsNumToString(flight.Total_stops_Num),
+      Airline: flight.airline,
+      Source: flight.Source,
+      Destination: flight.Destination,
+      Class: flight.Class
+    };
+
+    const predictionResultElement = document.getElementById('prediction-result');
+
+    try {
+      const response = await fetch(`${API_BASE}/predict-fare`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(predictionInput),
+      });
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        throw new Error(data.error || 'Prediction failed');
+      }
+      // Compare prices
+      let insightText = '';
+      const predicted = data.predicted_fare_inr;
+      const current = flight.cost_inr;
+      if (current < predicted * 0.9) {
+          insightText = ` <span style="color: #4ade80;">(Great Deal! This is cheaper than the typical ₹${Math.round(predicted)} fare)</span>`;
+      } else if (current > predicted * 1.1) {
+          insightText = ` <span style="color: #ef4444;">(Price is high. The typical fare is closer to ₹${Math.round(predicted)})</span>`;
+      }
+      
+      predictionResultElement.innerHTML = `<strong>Typical Fare (ML Model):</strong> ₹ ${data.predicted_fare_inr} INR ${insightText}`;
+      
+    } catch (error) {
+      console.error('Error calling prediction endpoint:', error);
+      predictionResultElement.textContent = `Prediction Error: ${error.message}`;
+    }
+  }
+
+  // --- Modal Close Listeners ---
+  modalClose.addEventListener('click', () => {
+    modal.classList.remove('open');
+    modal.classList.add('hidden');
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.remove('open');
+      modal.classList.add('hidden');
+    }
+  });
+
+  // --- Helper Functions ---
   function mapTimeToNum(hour) {
     if (hour < 6) return 0;
     if (hour < 12) return 1;
     if (hour < 18) return 2;
     return 3;
   }
-
-  // debounce helper
-  function debounce(fn, delay = 220) {
-    let t;
-    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+  function mapStopsNumToString(stopsNum) {
+    if (stopsNum === 0) return 'non-stop';
+    if (stopsNum === 1) return '1-stop';
+    return '2+-stops';
   }
 
-  // ---------- Suggestions (basic fuzzy match) ----------
-  function showSuggestions(listEl, inputEl, data) {
-    const q = inputEl.value.trim().toUpperCase();
-    listEl.innerHTML = '';
-    if (!q) { listEl.classList.remove('show'); return; }
-    const matches = data.filter(item => item.code.includes(q) || item.name.toUpperCase().includes(q)).slice(0,10);
-    if (!matches.length) {
-      const li = el('li'); li.textContent = 'No matches'; li.className='no-match';
-      listEl.appendChild(li); listEl.classList.add('show'); return;
-    }
-    matches.forEach(m => {
-      const li = el('li');
-      li.tabIndex = 0;
-      li.setAttribute('role','option');
-      li.innerHTML = `<strong>${m.code}</strong> — <span style="color: #6b7280">${m.name}</span>`;
-      li.addEventListener('click', () => {
-        inputEl.value = m.code;
-        listEl.classList.remove('show');
-      });
-      li.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { inputEl.value = m.code; listEl.classList.remove('show'); }
-      });
-      listEl.appendChild(li);
-    });
-    listEl.classList.add('show');
-  }
-
-  // ---------- Flight card creation ----------
-  function createFlightCard(flight, delayIndex = 0) {
-    const card = el('article', 'flight-card');
-    card.tabIndex = 0; // keyboard accessible
-    // structured content
-    const title = el('h3'); title.textContent = `${flight.airline} • ${flight.flight_number || '—'}`;
-    const costWrap = el('div','meta-row');
-    costWrap.innerHTML = `<div>Fare</div><div class="big">$${flight.cost_usd}</div>`;
-
-    const duration = el('div','meta-row');
-    duration.innerHTML = `<div>Duration</div><div class="big">${flight.duration_hours} hrs</div>`;
-
-    const eco = el('div','meta-row');
-    eco.innerHTML = `<div>Eco score</div><div class="pill">${flight.eco_score} <span style="opacity:.6;margin-left:6px;font-weight:400"> (lower better)</span></div>`;
-
-    const airports = el('div','meta-row');
-    airports.innerHTML = `<div>Route</div><div class="big">${flight.Source || 'N/A'} → ${flight.Destination || 'N/A'}</div>`;
-
-    card.appendChild(title);
-    card.appendChild(costWrap);
-    card.appendChild(duration);
-    card.appendChild(eco);
-    card.appendChild(airports);
-
-    // animate entrance
-    setTimeout(() => card.classList.add('visible'), 60 * delayIndex);
-
-    // click and keyboard open modal
-    card.addEventListener('click', () => showFlightDetails(flight));
-    card.addEventListener('keydown', (e) => { if (e.key === 'Enter') showFlightDetails(flight); });
-
-    return card;
-  }
-
-  // ---------- Show details modal & call prediction ----------
-  async function showFlightDetails(flight) {
-    // populate
-    modalTitle.textContent = `${flight.airline} ${flight.flight_number || ''}`.trim();
-    const dep = flight.departure_time ? new Date(flight.departure_time).toLocaleString() : 'N/A';
-    const arr = flight.arrival_time ? new Date(flight.arrival_time).toLocaleString() : 'N/A';
-
-    modalBody.innerHTML = `
-      <p><strong>Departure:</strong> ${dep}</p>
-      <p><strong>Arrival:</strong> ${arr}</p>
-      <hr/>
-      <p><strong>Fare (API):</strong> $${flight.cost_usd}</p>
-      <p><strong>Duration:</strong> ${flight.duration_hours} hrs</p>
-      <p><strong>Eco Score:</strong> ${flight.eco_score}</p>
-      <p><strong>Stops:</strong> ${mapStopsNumToString(flight.Total_stops_Num)}</p>
-      <p><strong>Origin Comfort:</strong> ${flight.origin_comfort_score} / 5.0</p>
-      <p><strong>Destination Comfort:</strong> ${flight.dest_comfort_score} / 5.0</p>
-      <hr/>
-      <p id="prediction-result"><strong>Predicted Fare:</strong> Fetching...</p>
-    `;
-
-    // show modal with animation
-    modal.classList.remove('hidden');
-    requestAnimationFrame(() => modal.classList.add('open'));
-
-    // prepare prediction payload
-    const depDate = flight.departure_time ? new Date(flight.departure_time) : null;
-    const arrDate = flight.arrival_time ? new Date(flight.arrival_time) : null;
-    const payload = {
-      Duration_in_hours: flight.duration_hours,
-      Days_left: flight.Days_left || 7,
-      Journey_Month: depDate ? (depDate.getMonth() + 1) : null,
-      Journey_DayOfWeek: depDate ? depDate.getDay() : null,
-      Departure_Num: depDate ? mapTimeToNum(depDate.getHours()) : null,
-      Arrival_Num: arrDate ? mapTimeToNum(arrDate.getHours()) : null,
-      Total_stops: mapStopsNumToString(flight.Total_stops_Num),
-      Airline: flight.Airline,
-      Source: flight.Source,
-      Destination: flight.Destination,
-      Class: flight.Class || 'Economy'
-    };
-
-    // call prediction endpoint (with timeout)
-    const predEl = document.getElementById('prediction-result');
-    try {
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 4500);
-
-      const resp = await fetch(`${API_BASE}/predict-fare`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      clearTimeout(id);
-      if (!resp.ok) throw new Error('Prediction service error');
-      const data = await resp.json();
-      if (data && data.predicted_fare_inr !== undefined) {
-        predEl.innerHTML = `<strong>Predicted Fare (ML):</strong> ₹ ${data.predicted_fare_inr} INR`;
-      } else {
-        throw new Error(data?.error || 'Invalid response');
-      }
-    } catch (err) {
-      // graceful fallback message
-      predEl.innerHTML = `<strong>Predicted Fare:</strong> unavailable — (prediction service offline)`;
-    }
-  }
-
-  // ---------- Close modal helpers ----------
-  function closeModal() {
-    modal.classList.remove('open');
-    setTimeout(() => modal.classList.add('hidden'), 220);
-  }
-  modalClose.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
-
-  // ---------- Render results (main entry) ----------
-  async function searchFlights(from, to, priority) {
-    // clear previous
-    resultsContainer.innerHTML = '';
-    showLoading(true);
-
-    // Build URL
-    const url = `${API_BASE}/routes?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&priority=${encodeURIComponent(priority)}`;
-
-    try {
-      // try network fetch with timeout
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 4500);
-      const resp = await fetch(url, { signal: controller.signal });
-      clearTimeout(id);
-
-      if (!resp.ok) throw new Error('API fetch failed');
-      const flights = await resp.json();
-      renderFlightsArray(Array.isArray(flights) ? flights : []);
-
-      showLoading(false);
-    } catch (err) {
-      // If network fails, use demo or fallback
-      showLoading(false);
-      if (demoMode) {
-        showToast('Using demo results (backend unreachable)');
-        const demo = DEMO_FLIGHTS(from, to);
-        renderFlightsArray(demo);
-      } else {
-        showToast('Could not fetch flights — try demo mode');
-        resultsContainer.innerHTML = '<div style="color:#6b7280;padding:16px;border-radius:10px;background:#fff;"><strong>Error:</strong> Could not reach the backend.</div>';
-      }
-    }
-  }
-
-  function renderFlightsArray(arr) {
-    resultsContainer.innerHTML = '';
-    if (!arr || !arr.length) {
-      resultsContainer.innerHTML = '<div style="padding:16px;color:#6b7280;background:#fff;border-radius:12px">No flights found for this route.</div>';
-      return;
-    }
-    arr.forEach((f, i) => {
-      const c = createFlightCard(f, i + 1);
-      resultsContainer.appendChild(c);
-    });
-  }
-
-  // ---------- Load insights chart ----------
-  async function loadInsights() {
-    // try to fetch; fallback to demo
-    try {
-      const resp = await fetch(`${API_BASE}/insights/busiest-routes`);
-      if (!resp.ok) throw new Error('No insights');
-      const data = await resp.json();
-      buildChartFromData(Array.isArray(data) ? data : []);
-    } catch (err) {
-      // demo chart data
-      const demo = [
-        { origin_iata: 'LHR', dest_iata: 'JFK', search_count: 24 },
-        { origin_iata: 'DEL', dest_iata: 'DXB', search_count: 17 },
-        { origin_iata: 'SFO', dest_iata: 'HND', search_count: 12 },
-        { origin_iata: 'BOM', dest_iata: 'SIN', search_count: 8 }
-      ];
-      buildChartFromData(demo);
-    }
-  }
-
-  function buildChartFromData(data) {
-    const labels = data.map(r => `${r.origin_iata} → ${r.dest_iata}`);
-    const values = data.map(r => Number(r.search_count || 0));
-    const ctx = document.getElementById('busiestRoutesChart').getContext('2d');
-
-    if (busiestChart) {
-      busiestChart.data.labels = labels;
-      busiestChart.data.datasets[0].data = values;
-      busiestChart.update();
-      return;
-    }
-
-    busiestChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Searches',
-          data: values,
-          // Chart.js default colors are used; don't force color
-          borderWidth: 1,
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: { duration: 800 },
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { beginAtZero: true, ticks: { precision: 0 } }
-        }
-      }
-    });
-  }
-
-  // ---------- Events ----------
-  // Submit handler
-  document.getElementById('search-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const from = fromInput.value.trim().toUpperCase();
-    const to = toInput.value.trim().toUpperCase();
-    const priority = document.querySelector('input[name="priority"]:checked').value;
-
-    if (!from || !to) { showToast('Please enter both From and To IATA codes'); return; }
-    if (from === to) { showToast('From and To cannot be the same'); return; }
-
-    searchFlights(from, to, priority);
-  });
-
-  // Clear form
-  clearButton.addEventListener('click', () => {
-    fromInput.value = '';
-    toInput.value = '';
-    resultsContainer.innerHTML = '';
-    showToast('Cleared search');
-  });
-
-  // Demo toggle
-  demoBtn.addEventListener('click', () => {
-    demoMode = !demoMode;
-    demoBtn.textContent = demoMode ? 'Demo data' : 'Live only';
-    showToast(`Demo mode ${demoMode ? 'ON' : 'OFF'}`);
-  });
-
-  // suggestions behavior
-  fromInput.addEventListener('input', debounce(() => showSuggestions(fromSug, fromInput, IATA_LIST), 120));
-  toInput.addEventListener('input', debounce(() => showSuggestions(toSug, toInput, IATA_LIST), 120));
-
-  // hide suggestions on blur
+  // --- Global Click Listener (to close suggestions) ---
   document.addEventListener('click', (e) => {
     if (!fromInput.contains(e.target) && !fromSug.contains(e.target)) fromSug.classList.remove('show');
     if (!toInput.contains(e.target) && !toSug.contains(e.target)) toSug.classList.remove('show');
   });
 
   // keyboard: press Enter in inputs to trigger search
-  [fromInput, toInput].forEach(inp => inp.addEventListener('keydown', (e) => {
+  [fromInput, toInput, dateInput].forEach(inp => inp.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       findButton.click();
@@ -396,28 +363,5 @@ function showSuggestions(listEl, inputEl) {
 
   // ---------- Initial load ----------
   loadInsights();
-  // Optionally preload suggestions cache (we already have IATA_LIST)
 
-  // small accessibility: focus trap when modal open (simple)
-  modal.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab') {
-      const focusables = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-  });
-
-  // Small initial demo search so the UI isn't empty (optional)
-  if (demoMode) {
-    // populate some defaults
-    fromInput.value = 'BOM';
-    toInput.value = 'DEL';
-    // tiny delay then run
-    setTimeout(() => {
-      document.getElementById('search-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    }, 450);
-  }
-})();
+})(); // End of IIFE
