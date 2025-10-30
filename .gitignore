@@ -1,0 +1,21 @@
+# Node.js backend dependencies
+backend/node_modules/
+
+# Python virtual environment
+mlService/venv/
+
+# Python cache files
+mlService/__pycache__/
+*.pyc
+
+# Optional: Ignore large data/model files if they exceed Git limits (e.g., >100MB)
+mlService/data/*.csv
+mlService/flight_fare_predictor.pkl
+
+# OS generated files
+.DS_Store
+Thumbs.db
+/.ipynb_checkpoints/
+
+# env
+backend/.env
