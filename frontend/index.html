@@ -25,6 +25,24 @@
         <div class="brand-tag">Smart choices for flying</div>
       </div>
     </div>
+    <div class="preferences">
+      <div class="input-group">
+        <label for="pref-class">Class</label>
+        <select id="pref-class" class="pref-select">
+          <option value="Economy">Economy</option>
+          <option value="Business">Business</option>
+          <option value="First Class">First Class</option>
+          <option value="Premium Economy">Premium Economy</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label for="pref-currency">Currency</label>
+        <select id="pref-currency" class="pref-select">
+          <option value="INR">₹ INR</option>
+          <option value="USD">$ USD</option>
+        </select>
+      </div>
+    </div>
   </header>
 
   <main>
@@ -63,15 +81,30 @@
           <span id="priority-label">Sort by:</span>
           <input type="radio" name="priority" value="cheapest" id="pri-cheap" checked><label for="pri-cheap">Cheapest</label>
           <input type="radio" name="priority" value="shortest" id="pri-short"><label for="pri-short">Shortest</label>
-          <input type="radio" name="priority" value="eco" id="pri-eco"><label for="pri-eco">Eco-Friendly</label>
+          <input type="radio" name="priority" value="eco" id="pri-eco"><label for="pri-eco">Eco-Friendly (kg CO2)</label>
         </div>
         
-        <div class="meta-item">
-          <span>💡 Click a card for ML-predicted fare</span>
+        <div class="input-group">
+          <label for="comfort-filter">Min. Airport Comfort</label>
+          <div class="input-field">
+            <select id="comfort-filter" class="pref-select" style="padding: 0; border: 0;">
+              <option value="0">Any Comfort Level</option>
+              <option value="3">3.0+ Stars</option>
+              <option value="4">4.0+ Stars</option>
+              <option value="4.5">4.5+ Stars</option>
+            </select>
+          </div>
         </div>
+        
       </form>
     </section>
 
+    <section class="saved-flights" aria-labelledby="saved-title">
+        <h2 id="saved-title">My Saved Flights</h2>
+        <div id="saved-flights-container" class="results-grid">
+            <p class="loader-text" id="no-saved-flights">No saved flights yet. Click the 'Save' button on a flight card!</p>
+        </div>
+    </section>
     <section class="insights" aria-labelledby="insights-title">
       <div class="insights-header">
         <h2 id="insights-title">Insights</h2>
@@ -87,7 +120,6 @@
         <div class="loader-plane"></div>
         <div class="loader-text">Searching for best routes...</div>
       </div>
-
       <div id="results-container" class="results-grid" aria-label="Search results"></div>
     </section>
   </main>

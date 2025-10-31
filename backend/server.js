@@ -14,15 +14,30 @@ const AVIATIONSTACK_KEY = process.env.AVIATIONSTACK_API_KEY;
 
 // --- Database Connection Pool ---
 const pool = mariadb.createPool({
-    host: process.env.DB_HOST, // Should be 'localhost' or 'host.docker.internal'
+    host: process.env.DB_HOST, 
     port: process.env.DB_PORT || 3306,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD, // Use your strong password
     database: process.env.DB_NAME,
-    connectionLimit: 5, // Max number of connections in the pool
+    connectionLimit: 5, 
     supportBigNumbers: true, // FIX for BigInt error
     bigNumberStrings: true // FIX for BigInt error
 });
+
+// --- Constants ---
+const CO2_PER_KM_FACTOR = 0.115; // Avg kg CO2 per km for a passenger jet.
+const CLASS_COST_MULTIPLIER = {
+    'Economy': 1.0,
+    'Premium Economy': 1.5,
+    'Business': 2.5,
+    'First Class': 4.0
+};
+const CLASS_ECO_MULTIPLIER = {
+    'Economy': 1.0,
+    'Premium Economy': 1.5,
+    'Business': 2.8, // Business seats take up more space
+    'First Class': 4.0 // First class takes up much more space
+};
 
 // --- Helper Functions ---
 function haversine(lat1, lon1, lat2, lon2) {
@@ -41,7 +56,7 @@ function haversine(lat1, lon1, lat2, lon2) {
 async function logSearchAnalytics(origin, dest, priority, results) {
     if (!results || results.length === 0) return;
     const costs = results.map(f => f.cost_inr); // Use cost_inr
-    const scores = results.map(f => f.eco_score);
+    const scores = results.map(f => f.co2_kg); // Use co2_kg
     const min_price = costs.length > 0 ? Math.min(...costs) : 0;
     const min_eco_score = scores.length > 0 ? Math.min(...scores) : 0;
     const result_count = results.length;
@@ -52,7 +67,6 @@ async function logSearchAnalytics(origin, dest, priority, results) {
             INSERT INTO search_logs (origin_iata, dest_iata, priority_searched, min_price, min_eco_score, result_count, search_timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
-        // Note: min_price is now in INR
         await conn.query(sql, [origin, dest, priority, min_price, min_eco_score, result_count, new Date()]);
     } catch (err) {
         console.error("Analytics Log Error:", err.message);
@@ -103,13 +117,21 @@ app.get('/api/airports', async (req, res) => { /* ... (no change) ... */
  * @desc Fetch flight routes, merge with local data, calculate scores, and sort.
  */
 app.get('/api/routes', async (req, res) => {
-    // --- UPDATED: Get days_left from query ---
-    const { from: fromIata, to: toIata, priority = 'cheapest', days_left: daysLeft } = req.query;
+    // --- UPDATED: Get all new params ---
+    const { 
+        from: fromIata, 
+        to: toIata, 
+        priority = 'cheapest', 
+        days_left: daysLeft, 
+        min_comfort: minComfort,
+        class: flightClass = 'Economy' // Default to Economy
+    } = req.query;
 
     if (!fromIata || !toIata || !daysLeft) {
         return res.status(400).json({ message: "Missing 'from', 'to', or 'days_left' parameter" });
     }
     const daysLeftNum = parseInt(daysLeft, 10);
+    const minComfortNum = parseFloat(minComfort) || 0;
     if (isNaN(daysLeftNum) || daysLeftNum < 1) {
          return res.status(400).json({ message: "Invalid 'days_left' parameter" });
     }
@@ -118,14 +140,25 @@ app.get('/api/routes', async (req, res) => {
     try {
         // 1. Get airport data (lat/lon, comfort) and fuel factor from MariaDB
         conn = await pool.getConnection();
-        const [originRows] = await conn.query("SELECT latitude, longitude, metadata FROM airports WHERE iata = ?", [fromIata]);
-        const [destRows] = await conn.query("SELECT latitude, longitude, metadata FROM airports WHERE iata = ?", [toIata]);
+
+        // --- NEW: Comfort Query using MariaDB JSON_VALUE ---
+        const comfortQuery = (minComfortNum > 0) 
+            ? `AND JSON_VALUE(metadata, '$.comfortScore') >= ${minComfortNum}`
+            : "";
+
+        const [originRows] = await conn.query(`SELECT latitude, longitude, metadata FROM airports WHERE iata = ? ${comfortQuery}`, [fromIata]);
+        const [destRows] = await conn.query(`SELECT latitude, longitude, metadata FROM airports WHERE iata = ? ${comfortQuery}`, [toIata]);
+        // --- END OF COMFORT QUERY ---
+        
         const origin = originRows;
         const destination = destRows;
 
         if (!origin || !destination) {
             if (conn) conn.release();
-            return res.status(404).json({ message: "Invalid 'from' or 'to' IATA code" });
+            let errorMsg = "Invalid 'from' or 'to' IATA code.";
+            if (!origin) errorMsg = `Origin airport ${fromIata} not found or does not meet comfort score of ${minComfortNum}+.`;
+            if (!destination) errorMsg = `Destination airport ${toIata} not found or does not meet comfort score of ${minComfortNum}+.`;
+            return res.status(404).json({ message: errorMsg });
         }
 
         const distanceKm = haversine(origin.latitude, origin.longitude, destination.latitude, destination.longitude);
@@ -160,8 +193,15 @@ app.get('/api/routes', async (req, res) => {
             apiData.data.forEach((flight, i) => {
                 // 3. Merge API data with calculated/mocked data
                 const baseDuration = (distanceKm / 800) + Math.random() * 2;
-                // --- MOCK COST IN INR (e.g., ~₹8 per km) ---
-                const baseCost = distanceKm * (Math.random() * (10 - 6) + 6); 
+                
+                // --- MOCK COST IN INR with Class Multiplier ---
+                const baseCost = distanceKm * (Math.random() * (10 - 6) + 6); // Base Economy price in INR
+                const classMultiplier = CLASS_COST_MULTIPLIER[flightClass] || 1.0;
+                const finalCost = baseCost * classMultiplier;
+                
+                // --- CALCULATE REAL CO2 ---
+                const ecoMultiplier = CLASS_ECO_MULTIPLIER[flightClass] || 1.0;
+                const co2_kg = distanceKm * CO2_PER_KM_FACTOR * avgFuelFactor * ecoMultiplier;
 
                 processedFlights.push({
                     id: i,
@@ -170,15 +210,15 @@ app.get('/api/routes', async (req, res) => {
                     departure_time: flight.departure?.scheduled || 'N/A',
                     arrival_time: flight.arrival?.scheduled || 'N/A',
                     duration_hours: Math.round(baseDuration * 10) / 10,
-                    cost_inr: Math.round(baseCost), // --- CHANGED TO cost_inr ---
-                    eco_score: Math.round((distanceKm * avgFuelFactor) * (Math.random() * (1.1 - 0.9) + 0.9)),
+                    cost_inr: Math.round(finalCost), // --- CHANGED TO cost_inr ---
+                    co2_kg: Math.round(co2_kg), // --- CHANGED TO co2_kg ---
                     origin_comfort_score: origin.metadata?.comfortScore || 4.0,
                     dest_comfort_score: destination.metadata?.comfortScore || 4.0,
 
                     // --- Fields needed for prediction service (NOW REAL) ---
                     Source: fromIata,
                     Destination: toIata,
-                    Class: 'Economy',
+                    Class: flightClass, // --- USE REAL CLASS ---
                     Days_left: daysLeftNum, // --- USE REAL daysLeftNum ---
                     Total_stops_Num: 0 // Hardcoded default
                 });
@@ -189,7 +229,7 @@ app.get('/api/routes', async (req, res) => {
         if (priority === 'shortest') {
             processedFlights.sort((a, b) => a.duration_hours - b.duration_hours);
         } else if (priority === 'eco') {
-            processedFlights.sort((a, b) => a.eco_score - b.eco_score);
+            processedFlights.sort((a, b) => a.co2_kg - b.co2_kg); // --- SORT BY co2_kg ---
         } else { // Default to 'cheapest'
             processedFlights.sort((a, b) => a.cost_inr - b.cost_inr); // --- SORT BY cost_inr ---
         }

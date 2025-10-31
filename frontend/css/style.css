@@ -1,6 +1,4 @@
 /* FlyWise - modern hackathon style (glassmorphism + subtle motion) */
-/* Uses Inter font loaded in HTML. Keep colors accessible. */
-
 :root {
   --bg: #0f1724; /* deep page background */
   --card: #ffffff22; /* translucent white */
@@ -21,51 +19,23 @@
 }
 
 /* Reset-ish */
-* {
-  box-sizing: border-box;
-}
-html,
-body {
-  height: 100%;
-}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
   margin: 0;
   background: var(--bg) no-repeat;
   background-attachment: fixed;
   color: #e2e8f0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   padding: 2vw;
   line-height: 1.6;
 }
-main {
-  max-width: var(--max-width);
-  margin: 0 auto;
-}
-h1,
-h2,
-h3 {
-  margin: 0 0 12px;
-  color: white;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-h2 {
-  font-size: 28px;
-}
-h3 {
-  font-size: 20px;
-}
-p,
-label,
-span {
-  font-size: 16px;
-  color: var(--muted);
-}
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
+main { max-width: var(--max-width); margin: 0 auto; }
+h1, h2, h3 { margin: 0 0 12px; color: white; font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 28px; }
+h3 { font-size: 20px; }
+p, label, span { font-size: 16px; color: var(--muted); }
+a { color: var(--accent); text-decoration: none; }
 button {
   cursor: pointer;
   font-family: inherit;
@@ -75,7 +45,7 @@ button {
   border: none;
   transition: all 0.2s ease-out;
 }
-input {
+input, select {
   font-family: inherit;
   font-size: 16px;
   color: white;
@@ -84,35 +54,38 @@ input {
   width: 100%;
   outline: none;
 }
-input::placeholder {
-  color: var(--muted);
-}
+input::placeholder { color: var(--muted); }
 
-/* --- Style for Date Picker --- */
-input[type="date"] {
+/* --- Style for Date/Select Pickers --- */
+input[type="date"], select.pref-select {
   position: relative;
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
+  padding: 0; /* Remove default padding for select */
 }
-/* Style date picker text and calendar icon */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  background: none;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
-  color: transparent;
-  background: transparent;
+input[type="date"]::-webkit-calendar-picker-indicator,
+select.pref-select::-ms-expand {
+  display: none; /* Hide default arrows */
 }
-/* Change text color when a date is selected */
-input[type="date"]:valid {
+select.pref-select {
+  background: var(--glass);
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  color: var(--muted);
+}
+select.pref-select option {
+  background: #0f1724;
   color: white;
 }
+.input-field select.pref-select {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: white;
+}
+input[type="date"]:valid { color: white; }
 input[type="date"]::-webkit-datetime-edit-text,
 input[type="date"]::-webkit-datetime-edit-month-field,
 input[type="date"]::-webkit-datetime-edit-day-field,
@@ -125,7 +98,7 @@ input[type="date"]:valid::-webkit-datetime-edit-day-field,
 input[type="date"]:valid::-webkit-datetime-edit-year-field {
   color: white;
 }
-/* --- End of Date Picker Style --- */
+/* --- End of Picker Style --- */
 
 /* Glass Card Base Style */
 .glass-card {
@@ -145,12 +118,10 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   align-items: center;
   padding: 10px 0;
   margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 20px;
 }
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+.brand { display: flex; align-items: center; gap: 12px; }
 .logo {
   display: grid;
   place-items: center;
@@ -161,44 +132,25 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   border-radius: 10px;
   transform: rotate(-10deg);
 }
-.logo svg {
-  width: 24px;
-  height: 24px;
-  transform: rotate(10deg);
-}
-.brand-title {
-  color: white;
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.1;
-}
-.brand-tag {
-  color: var(--muted);
-  font-size: 15px;
-}
+.logo svg { width: 24px; height: 24px; transform: rotate(10deg); }
+.brand-title { color: white; font-size: 22px; font-weight: 700; line-height: 1.1; }
+.brand-tag { color: var(--muted); font-size: 15px; }
+
+/* --- Preferences --- */
+.preferences { display: flex; gap: 16px; }
+.preferences .input-group { gap: 4px; }
+.preferences .input-group label { font-size: 14px; }
 
 /* Search Section */
-.search-section {
-  padding: 24px;
-  margin-bottom: 30px;
-}
+.search-section { padding: 24px; margin-bottom: 30px; }
 .search-form {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr auto;
   gap: 16px;
   align-items: end;
 }
-.input-group {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.input-group label {
-  font-weight: 600;
-  color: #cdd6e4;
-  padding-left: 4px;
-}
+.input-group { position: relative; display: flex; flex-direction: column; gap: 8px; }
+.input-group label { font-weight: 600; color: #cdd6e4; padding-left: 4px; }
 .input-field {
   display: flex;
   align-items: center;
@@ -214,11 +166,7 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-2);
 }
-.input-field svg {
-  width: 20px;
-  height: 20px;
-  color: var(--muted);
-}
+.input-field svg { width: 20px; height: 20px; color: var(--muted); }
 .search-button {
   background: var(--accent);
   color: white;
@@ -247,9 +195,7 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   margin: 0;
   z-index: 10;
 }
-.suggestions.show {
-  display: block;
-}
+.suggestions.show { display: block; }
 .suggestions li {
   padding: 10px 12px;
   border-radius: 8px;
@@ -257,21 +203,11 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   color: var(--muted);
   font-size: 15px;
 }
-.suggestions li:hover {
-  background: var(--accent);
-  color: white;
-}
-.suggestions li strong {
-  color: white;
-}
+.suggestions li:hover { background: var(--accent); color: white; }
+.suggestions li strong { color: white; }
 
 /* Priority Controls */
-.priority-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
-}
+.priority-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
 .priority-controls label {
   display: flex;
   align-items: center;
@@ -284,43 +220,21 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   cursor: pointer;
   transition: all 0.2s ease-out;
 }
-.priority-controls input[type='radio'] {
-  display: none;
-}
-.priority-controls label:hover {
-  background: var(--glass-contrast);
-  border-color: #ffffff44;
-}
+.priority-controls input[type='radio'] { display: none; }
+.priority-controls label:hover { background: var(--glass-contrast); border-color: #ffffff44; }
 .priority-controls input[type='radio']:checked + label {
   background: var(--accent);
   border-color: var(--accent);
   color: white;
   box-shadow: 0 0 0 3px var(--accent-2);
 }
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 14px;
-}
+.meta-item { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
 
-/* Insights Section */
-.insights {
-  margin-bottom: 30px;
-}
-.insights-header {
-  margin-bottom: 16px;
-}
-.insights-sub {
-  color: var(--muted);
-  font-size: 16px;
-}
-.chart-wrap {
-  position: relative;
-  width: 100%;
-  max-height: 400px;
-}
+/* Insights & Saved Flights Sections */
+.insights, .saved-flights { margin-bottom: 30px; }
+.insights-header, .saved-flights h2 { margin-bottom: 16px; }
+.insights-sub { color: var(--muted); font-size: 16px; }
+.chart-wrap { position: relative; width: 100%; max-height: 400px; }
 
 /* Results: Loader */
 .loader {
@@ -338,30 +252,13 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   font-size: 40px;
   animation: fly 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-.loader-plane::before {
-  content: '✈️';
-}
-.loader-text {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--muted);
-}
-.hidden {
-  display: none;
-}
+.loader-plane::before { content: '✈️'; }
+.loader-text { font-size: 18px; font-weight: 600; color: var(--muted); }
+.hidden { display: none; }
 @keyframes fly {
-  0% {
-    transform: translateX(-100px) translateY(20px) rotate(-20deg);
-    opacity: 0;
-  }
-  50% {
-    transform: translateX(0) translateY(0) rotate(0);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(100px) translateY(-20px) rotate(20deg);
-    opacity: 0;
-  }
+  0% { transform: translateX(-100px) translateY(20px) rotate(-20deg); opacity: 0; }
+  50% { transform: translateX(0) translateY(0) rotate(0); opacity: 1; }
+  100% { transform: translateX(100px) translateY(-20px) rotate(20deg); opacity: 0; }
 }
 
 /* Results: Grid */
@@ -383,30 +280,17 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   opacity: 0;
   transform: translateY(20px);
   animation: fade-in 0.5s var(--ease) forwards;
+  display: flex;
+  flex-direction: column;
 }
 /* Staggered animation for cards */
-.flight-card:nth-child(1) {
-  animation-delay: 0.1s;
-}
-.flight-card:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.flight-card:nth-child(3) {
-  animation-delay: 0.3s;
-}
-.flight-card:nth-child(4) {
-  animation-delay: 0.4s;
-}
-.flight-card:nth-child(5) {
-  animation-delay: 0.5s;
-}
+.flight-card:nth-child(1) { animation-delay: 0.1s; }
+.flight-card:nth-child(2) { animation-delay: 0.2s; }
+.flight-card:nth-child(3) { animation-delay: 0.3s; }
+.flight-card:nth-child(4) { animation-delay: 0.4s; }
+.flight-card:nth-child(5) { animation-delay: 0.5s; }
 
-@keyframes fade-in {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+@keyframes fade-in { to { opacity: 1; transform: translateY(0); } }
 
 .flight-card:hover {
   transform: translateY(-5px) scale(1.02);
@@ -421,67 +305,65 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   padding-bottom: 16px;
   border-bottom: 1px solid var(--glass-border);
 }
-.card-header h3 {
-  margin: 0;
-  font-size: 20px;
-}
-.card-airline {
-  font-size: 16px;
-  font-weight: 600;
-  color: #e2e8f0;
-}
-.card-flight-num {
-  font-size: 14px;
-  color: var(--muted);
-}
+.card-airline { font-size: 16px; font-weight: 600; color: #e2e8f0; }
+.card-flight-num { font-size: 14px; color: var(--muted); }
 .card-main {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 18px;
 }
-.route-col {
-  display: flex;
-  flex-direction: column;
-}
-.route-col .iata {
-  font-size: 28px;
-  font-weight: 700;
-  color: white;
-}
-.route-col .city {
-  font-size: 14px;
-  color: var(--muted);
-}
-.route-arrow {
-  padding: 0 10px;
-  font-size: 24px;
-  color: var(--accent);
-}
+.route-col { display: flex; flex-direction: column; }
+.route-col .iata { font-size: 28px; font-weight: 700; color: white; }
+.route-col .city { font-size: 14px; color: var(--muted); }
+.route-arrow { padding: 0 10px; font-size: 24px; color: var(--accent); }
 .card-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px 16px;
+  flex-grow: 1; /* Pushes buttons to bottom */
 }
-.stat-item {
-  font-size: 14px;
-  color: var(--muted);
-}
+.stat-item { font-size: 14px; color: var(--muted); }
 .stat-item strong {
   display: block;
   font-weight: 700;
   font-size: 18px;
-  color: white; /* Changed from #0b1220 to white for dark mode */
+  color: white; 
 }
+
+/* Save/Remove Buttons */
+.card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--glass-border);
+}
+.card-btn {
+  flex-grow: 1;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+.save-btn {
+  background: var(--accent-2);
+  color: white;
+}
+.save-btn:hover { background: var(--accent); }
+.remove-btn {
+  background: var(--danger);
+  color: white;
+}
+.remove-btn:hover { background: #b91c1c; }
+
 
 /* eco rating pill */
 .pill {
   display: inline-flex;
   gap: 8px;
   align-items: center;
-  padding: 6px 12px; /* Increased padding */
+  padding: 6px 12px;
   border-radius: 999px;
-  background: var(--accent-2); /* Use accent color */
+  background: var(--accent-2);
   font-weight: 600;
   color: white;
 }
@@ -501,14 +383,8 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   visibility: hidden;
   transition: all 0.3s var(--ease);
 }
-.modal.hidden {
-  opacity: 0;
-  visibility: hidden;
-}
-.modal.open {
-  opacity: 1;
-  visibility: visible;
-}
+.modal.hidden { opacity: 0; visibility: hidden; }
+.modal.open { opacity: 1; visibility: visible; }
 .modal-content {
   width: 94%;
   max-width: 720px;
@@ -522,10 +398,7 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   opacity: 0;
   transition: transform 0.22s var(--ease), opacity 0.22s var(--ease);
 }
-.modal.open .modal-content {
-  transform: none;
-  opacity: 1;
-}
+.modal.open .modal-content { transform: none; opacity: 1; }
 .modal-close {
   position: absolute;
   right: 14px;
@@ -536,26 +409,11 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   color: var(--muted);
   cursor: pointer;
 }
-.modal-close:hover {
-  color: white;
-}
-#modal-title {
-  margin-bottom: 20px;
-}
-#modal-body p {
-  font-size: 16px;
-  line-height: 1.7;
-  color: #e2e8f0;
-}
-#modal-body strong {
-  color: white;
-  font-weight: 600;
-}
-#modal-body hr {
-  border: 0;
-  border-top: 1px solid var(--glass-border);
-  margin: 20px 0;
-}
+.modal-close:hover { color: white; }
+#modal-title { margin-bottom: 20px; }
+#modal-body p { font-size: 16px; line-height: 1.7; color: #e2e8f0; }
+#modal-body strong { color: white; font-weight: 600; }
+#modal-body hr { border: 0; border-top: 1px solid var(--glass-border); margin: 20px 0; }
 #prediction-result {
   font-size: 18px;
   font-weight: 600;
@@ -565,9 +423,10 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   border-radius: 10px;
   color: #e2e8f0;
 }
-#prediction-result strong {
-  color: #4ade80; /* Green for success */
-}
+#prediction-result strong { color: #4ade80; }
+/* Insight colors for prediction */
+.prediction-good { color: var(--success) !important; }
+.prediction-bad { color: var(--danger) !important; }
 
 /* toast */
 .toast {
@@ -583,49 +442,24 @@ input[type="date"]:valid::-webkit-datetime-edit-year-field {
   z-index: 100;
   transition: all 0.4s var(--ease);
 }
-.toast.danger {
-  background: var(--danger);
-}
-.toast.show {
-  bottom: 22px; /* Animate in */
-}
+.toast.danger { background: var(--danger); }
+.toast.success { background: var(--success); } /* Added success style */
+.toast.show { bottom: 22px; /* Animate in */ }
 
 /* Responsive */
 @media (max-width: 900px) {
-  .search-form {
-    grid-template-columns: 1fr 1fr;
-  }
-  .search-form .priority-controls {
-    grid-column: 1 / -1;
-  }
-  .search-form .search-button {
-    grid-column: 1 / -1;
-    padding: 16px;
-  }
+  .search-form { grid-template-columns: 1fr 1fr; }
+  .search-form .priority-controls { grid-column: 1 / -1; }
+  .search-form .search-button { grid-column: 1 / -1; padding: 16px; }
 }
 
 @media (max-width: 600px) {
-  body {
-    padding: 16px;
-  }
-  .search-form {
-    grid-template-columns: 1fr;
-  }
-  .flight-card {
-    grid-template-columns: 1fr 1fr;
-    padding: 16px;
-  }
-  .flight-card .stat {
-    text-align: center;
-  }
-  .card-main {
-    flex-direction: column;
-    gap: 10px;
-    align-items: center;
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  .route-arrow {
-    transform: rotate(90deg);
-  }
+  body { padding: 16px; }
+  .search-form { grid-template-columns: 1fr; }
+  .flight-card { grid-template-columns: 1fr 1fr; padding: 16px; }
+  .flight-card .stat { text-align: center; }
+  .card-main { flex-direction: column; gap: 10px; align-items: center; text-align: center; margin-bottom: 20px; }
+  .route-arrow { transform: rotate(90deg); }
+  .preferences { width: 100%; justify-content: space-between; }
+  .preferences .input-group { flex-grow: 1; }
 }
