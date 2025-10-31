@@ -1,21 +1,9 @@
-/* FlyWise JS - Final Hackathon Version
-  Features:
-  - User Preferences (Currency, Class) via LocalStorage
-  - Real Date Picker -> Real Days_left calculation
-  - Real-time Carbon Estimate (kg CO2)
-  - ML Prediction with "Great/Bad Deal" comparison
-  - Save/Remove Flights (LocalStorage)
-  - Airport Search Suggestions
-  - Insights Chart
-  - Animations & Toasts
-*/
 (() => {
-  // ---------- Config ----------
+  
   const API_BASE = 'http://127.0.0.1:5000/api';
   let chartInstance = null;
-  const USD_TO_INR_RATE = 83; // Approx rate for currency conversion
+  const USD_TO_INR_RATE = 83;
 
-  // ---------- DOM Elements ----------
   const fromInput = document.getElementById('from-input');
   const toInput = document.getElementById('to-input');
   const dateInput = document.getElementById('date-input');
@@ -36,7 +24,6 @@
   const noSavedFlightsMsg = document.getElementById('no-saved-flights');
   const comfortFilter = document.getElementById('comfort-filter');
 
-  // ---------- User Preferences (LocalStorage) ----------
   let savedFlights = JSON.parse(localStorage.getItem('flyWiseSaved')) || [];
   let userPrefs = JSON.parse(localStorage.getItem('flyWisePrefs')) || {
     currency: 'INR',
@@ -47,11 +34,9 @@
     localStorage.setItem('flyWisePrefs', JSON.stringify(userPrefs));
   }
 
-  // Load prefs on start
   prefClass.value = userPrefs.class;
   prefCurrency.value = userPrefs.currency;
 
-  // Listen for changes
   prefClass.addEventListener('change', (e) => {
     userPrefs.class = e.target.value;
     savePrefs();
@@ -61,10 +46,9 @@
     userPrefs.currency = e.target.value;
     savePrefs();
     showToast('Currency preference saved!', 'success');
-    renderSavedFlights(); // Re-render saved flights with new currency
+    renderSavedFlights();
   });
 
-  // Helper to format currency
   function formatCurrency(valueInr) {
     if (userPrefs.currency === 'USD') {
       return `$${(valueInr / USD_TO_INR_RATE).toFixed(2)}`;
@@ -72,7 +56,6 @@
     return `₹${Math.round(valueInr)}`;
   }
   
-  // Set default date to 15 days from now
   const defaultDate = new Date();
   defaultDate.setDate(defaultDate.getDate() + 15);
   dateInput.value = defaultDate.toISOString().split('T')[0];
@@ -80,17 +63,15 @@
   tomorrow.setDate(tomorrow.getDate() + 1);
   dateInput.min = tomorrow.toISOString().split('T')[0];
 
-  // ---------- Toast Notifier ----------
   function showToast(message, type = 'danger') {
     toast.textContent = message;
     toast.className = 'toast show';
-    toast.classList.add(type); // 'danger', 'success'
+    toast.classList.add(type); 
     setTimeout(() => {
       toast.classList.remove('show');
     }, 3000);
   }
 
-  // ---------- Airport Suggestions ----------
   async function fetchAirportSuggestions(query) {
     try {
       const resp = await fetch(`${API_BASE}/airports?q=${encodeURIComponent(query)}`);
@@ -132,21 +113,19 @@
     fetchAirportSuggestions(q).then(matches => showSuggestions(toSug, toInput, matches));
   });
 
-  // ---------- Main Search ----------
   async function handleSearch() {
     const fromIata = fromInput.value.trim().toUpperCase();
     const toIata = toInput.value.trim().toUpperCase();
     const departureDate = dateInput.value; 
     const priority = document.querySelector('input[name="priority"]:checked').value;
-    const minComfort = comfortFilter.value; // Get comfort filter value
-    const prefClass = userPrefs.class; // Get class from saved prefs
+    const minComfort = comfortFilter.value; 
+    const prefClass = userPrefs.class; 
 
     if (!fromIata || !toIata) {
       showToast('Please enter both origin and destination.');
       return;
     }
     
-    // Calculate REAL Days_left
     if (!departureDate) {
       showToast('Please select a departure date.');
       return;
@@ -168,12 +147,14 @@
     findButton.disabled = true;
     findButton.textContent = 'Searching...';
 
-    // Pass all new params to the API
     const apiUrl = `${API_BASE}/routes?from=${fromIata}&to=${toIata}&priority=${priority}&days_left=${daysLeft}&min_comfort=${minComfort}&class=${prefClass}`;
 
     try {
       const response = await fetch(apiUrl);
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('No flights found for this route.');
+        }
         throw new Error(`Server error: ${response.statusText}`);
       }
       const flights = await response.json();
@@ -185,14 +166,18 @@
         resultsContainer.innerHTML = '<p class="loader-text">No flights found for this route.</p>';
       } else {
         flights.forEach(flight => {
-          const flightCard = createFlightCard(flight, false); // false = not a saved card
+          const flightCard = createFlightCard(flight, false); 
           resultsContainer.appendChild(flightCard);
         });
-        loadInsights(); // Refresh chart
+        loadInsights();
       }
     } catch (error) {
       console.error('Error fetching flights:', error);
-      showToast('Error loading flights. Please try again.');
+      if (error.message.includes('No flights found')) {
+        resultsContainer.innerHTML = '<p class="loader-text">No flights found for this route.</p>';
+      } else {
+        showToast('Error loading flights. Please try again.');
+      }
     } finally {
       loadingIndicator.classList.add('hidden');
       findButton.disabled = false;
@@ -202,7 +187,6 @@
 
   findButton.addEventListener('click', handleSearch);
 
-  // ---------- Insights Chart ----------
   async function loadInsights() {
     try {
       const response = await fetch(`${API_BASE}/insights/busiest-routes`);
@@ -230,8 +214,8 @@
           datasets: [{
             label: 'Total Searches',
             data: values,
-            backgroundColor: 'rgba(0, 123, 255, 0.6)',
-            borderColor: 'rgba(0, 123, 255, 1)',
+            backgroundColor: 'rgba(14, 165, 233, 0.6)',
+            borderColor: 'rgba(14, 165, 233, 1)',
             borderWidth: 1,
             borderRadius: 5,
           }]
@@ -265,35 +249,55 @@
       console.error('Error loading insights:', error);
     }
   }
-
-  // ---------- Flight Card & Modal ----------
+  
   function createFlightCard(flight, isSavedCard) {
     const card = document.createElement('div');
     card.className = 'flight-card';
 
-    // Format for display
     const cost = formatCurrency(flight.cost_inr);
     const duration = flight.duration_hours.toFixed(1);
-    const co2 = Math.round(flight.co2_kg); // Use new CO2 field
-    const comfort = (flight.origin_comfort_score || 4.0).toFixed(1);
+    const co2 = Math.round(flight.co2_kg);
+    const originComfort = (flight.origin_comfort_score || 4.0).toFixed(1);
+    const destComfort = (flight.dest_comfort_score || 4.0).toFixed(1);
+    
+    const starIcon = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M10.868 2.884c.321-.772 1.415-.772 1.736 0l1.681 4.06c.064.155.19.27.357.3l4.467.65c.801.117 1.12.964.545 1.49l-3.232 3.15c-.12.117-.175.28-.15.445l.764 4.45c.137.798-.7.14-1.423-.33l-3.985-2.095a.998.998 0 00-.916 0l-3.985 2.095c-.723.38-1.56-.532-1.423-.33l.764-4.45c.025-.165-.03-.328-.15-.445L.454 9.384c-.576-.526-.256-1.373.545-1.49l4.467-.65c.167-.024.3-.145.357-.3L9.13 2.884z" clip-rule="evenodd" />
+      </svg>`;
+      
+    const logoIcon = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+      </svg>`;
 
     card.innerHTML = `
       <div class="card-header">
-        <div>
-          <div class="card-airline">${flight.airline}</div>
-          <div class="card-flight-num">${flight.flight_number || 'N/A'}</div>
+        <div class="card-logo">
+          <div class="logo-bg">
+            ${logoIcon}
+          </div>
+          <div>
+            <div class="card-airline">${flight.airline}</div>
+            <div class="card-flight-num">${flight.flight_number || 'N/A'}</div>
+          </div>
         </div>
-        <div class="pill">Est: ${cost}</div>
+        <div class="pill">${cost}</div>
       </div>
       <div class="card-main">
         <div class="route-col">
           <div class="iata">${flight.Source}</div>
-          <div class="city">${comfort} Comfort</div>
+          <div class="card-meta">
+            ${starIcon}
+            ${originComfort} Comfort
+          </div>
         </div>
         <div class="route-arrow">→</div>
         <div class="route-col" style="text-align: right;">
           <div class="iata">${flight.Destination}</div>
-          <div class="city">${flight.dest_comfort_score.toFixed(1)} Comfort</div>
+          <div class="card-meta" style="justify-content: flex-end;">
+            ${starIcon}
+            ${destComfort} Comfort
+          </div>
         </div>
       </div>
       <div class="card-stats">
@@ -304,7 +308,6 @@
       </div>
     `;
     
-    // Add Save or Remove button
     const actionsContainer = card.querySelector('.card-actions');
     if (isSavedCard) {
       const removeBtn = document.createElement('button');
@@ -356,12 +359,11 @@
     modal.classList.add('open');
     modal.classList.remove('hidden');
 
-    // --- Prepare data for prediction service ---
     const predictionInput = {
       Duration_in_hours: flight.duration_hours,
-      Days_left: flight.Days_left, // <-- USES REAL VALUE
+      Days_left: flight.Days_left, 
       Journey_Month: depTime !== 'N/A' ? new Date(flight.departure_time).getMonth() + 1 : null,
-      Journey_DayOfWeek: depTime !== 'N/A' ? new Date(flight.departure_time).getDay() : null, // (Sun=0, Mon=1... adjust if model needs Mon=0)
+      Journey_DayOfWeek: depTime !== 'N/A' ? new Date(flight.departure_time).getDay() : null, 
       Departure_Num: depTime !== 'N/A' ? mapTimeToNum(new Date(flight.departure_time).getHours()) : null,
       Arrival_Num: arrTime !== 'N/A' ? mapTimeToNum(new Date(flight.arrival_time).getHours()) : null,
       Total_stops: mapStopsNumToString(flight.Total_stops_Num),
@@ -384,22 +386,27 @@
         throw new Error(data.error || 'Prediction failed');
       }
       
-      // --- "INVENTION" LOGIC: Compare Prices ---
       let insightText = '';
       const predicted = data.predicted_fare_inr;
       const current = flight.cost_inr;
       const predictedFormatted = formatCurrency(predicted);
       
-      if (current < predicted * 0.9) {
-          insightText = ` <span class="prediction-good">(Great Deal! This is cheaper than the typical ${predictedFormatted} fare)</span>`;
-      } else if (current > predicted * 1.1) {
+      const goodDealThreshold = predicted * 0.9; 
+      const badDealThreshold = predicted * 1.1;  
+      const spotOnLower = predicted * 0.98; 
+      const spotOnUpper = predicted * 1.02; 
+
+      if (current < goodDealThreshold) {
+          insightText = ` <span class="prediction-good">(Great Deal! This is much cheaper than the typical ${predictedFormatted} fare)</span>`;
+      } else if (current > badDealThreshold) {
           insightText = ` <span class="prediction-bad">(Price is high. The typical fare is closer to ${predictedFormatted})</span>`;
+      } else if (current >= spotOnLower && current <= spotOnUpper) {
+          insightText = ` <span class="prediction-good">(Spot on! This price is right at the typical ${predictedFormatted} fare)</span>`;
       } else {
           insightText = ` <span>(This price is about average for this booking time.)</span>`;
       }
       
       predictionResultElement.innerHTML = `<strong>Typical Fare (ML Model):</strong> ${predictedFormatted} ${insightText}`;
-      // --- END OF INSIGHT LOGIC ---
       
     } catch (error) {
       console.error('Error calling prediction endpoint:', error);
@@ -407,7 +414,6 @@
     }
   }
 
-  // --- Modal Close Listeners ---
   modalClose.addEventListener('click', () => {
     modal.classList.remove('open');
     modal.classList.add('hidden');
@@ -420,14 +426,14 @@
     }
   });
   
-  // --- Saved Flights Functions ---
   function renderSavedFlights() {
-    savedFlightsContainer.innerHTML = ''; // Clear old ones
+    savedFlightsContainer.innerHTML = ''; 
     if (savedFlights.length === 0) {
-      savedFlightsContainer.innerHTML = '<p class="loader-text" id="no-saved-flights">No saved flights yet. Click the \'Save\' button on a flight card!</p>';
+      noSavedFlightsMsg.style.display = 'block';
     } else {
+      noSavedFlightsMsg.style.display = 'none';
       savedFlights.forEach(flight => {
-        const card = createFlightCard(flight, true); // true = is a saved card
+        const card = createFlightCard(flight, true);
         savedFlightsContainer.appendChild(card);
       });
     }
@@ -450,10 +456,8 @@
     renderSavedFlights();
     showToast('Flight removed.', 'success');
   }
-  // --- End Saved Flights ---
 
 
-  // --- Helper Functions ---
   function mapTimeToNum(hour) {
     if (hour < 6) return 0;
     if (hour < 12) return 1;
@@ -466,13 +470,11 @@
     return '2+-stops';
   }
 
-  // --- Global Click Listener (to close suggestions) ---
   document.addEventListener('click', (e) => {
     if (!fromInput.contains(e.target) && !fromSug.contains(e.target)) fromSug.classList.remove('show');
     if (!toInput.contains(e.target) && !toSug.contains(e.target)) toSug.classList.remove('show');
   });
 
-  // keyboard: press Enter in inputs to trigger search
   [fromInput, toInput, dateInput].forEach(inp => inp.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -480,8 +482,7 @@
     }
   }));
 
-  // ---------- Initial load ----------
   loadInsights();
   renderSavedFlights();
 
-})(); // End of IIFE
+})(); 

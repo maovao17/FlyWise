@@ -5,27 +5,26 @@ const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
-app.use(cors()); // Enable Cross-Origin Resource Sharing
-app.use(express.json()); // Middleware to parse JSON request bodies
-const port = 5000; // Port for this main backend server
+app.use(cors()); 
+app.use(express.json());
+const port = 5000; 
 
-// --- Environment Variables ---
+
 const AVIATIONSTACK_KEY = process.env.AVIATIONSTACK_API_KEY;
 
-// --- Database Connection Pool ---
+//Database Connection Pool 
 const pool = mariadb.createPool({
     host: process.env.DB_HOST, 
     port: process.env.DB_PORT || 3306,
     user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD, // Use your strong password
+    password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     connectionLimit: 5, 
-    supportBigNumbers: true, // FIX for BigInt error
-    bigNumberStrings: true // FIX for BigInt error
+    supportBigNumbers: true, 
+    bigNumberStrings: true 
 });
 
-// --- Constants ---
-const CO2_PER_KM_FACTOR = 0.115; // Avg kg CO2 per km for a passenger jet.
+const CO2_PER_KM_FACTOR = 0.115; 
 const CLASS_COST_MULTIPLIER = {
     'Economy': 1.0,
     'Premium Economy': 1.5,
@@ -35,28 +34,26 @@ const CLASS_COST_MULTIPLIER = {
 const CLASS_ECO_MULTIPLIER = {
     'Economy': 1.0,
     'Premium Economy': 1.5,
-    'Business': 2.8, // Business seats take up more space
-    'First Class': 4.0 // First class takes up much more space
+    'Business': 2.8, 
+    'First Class': 4.0
 };
 
-// --- Helper Functions ---
 function haversine(lat1, lon1, lat2, lon2) {
   function toRad(x) { return x * Math.PI / 180; }
-  const R = 6378; // Earth radius in kilometers
-  const dLat = toRad(lat2 - lat1);
+  const R = 6378; 
   const dLon = toRad(lon2 - lon1);
   lat1 = toRad(lat1);
   lat2 = toRad(lat2);
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // Distance in km
+  return R * c;
 }
 
 async function logSearchAnalytics(origin, dest, priority, results) {
     if (!results || results.length === 0) return;
-    const costs = results.map(f => f.cost_inr); // Use cost_inr
-    const scores = results.map(f => f.co2_kg); // Use co2_kg
+    const costs = results.map(f => f.cost_inr);
+    const scores = results.map(f => f.co2_kg); 
     const min_price = costs.length > 0 ? Math.min(...costs) : 0;
     const min_eco_score = scores.length > 0 ? Math.min(...scores) : 0;
     const result_count = results.length;
@@ -75,8 +72,7 @@ async function logSearchAnalytics(origin, dest, priority, results) {
     }
 }
 
-// --- API Endpoints ---
-app.get('/api/test', async (req, res) => { /* ... (no change) ... */ 
+app.get('/api/test', async (req, res) => { 
     let conn;
     try {
         conn = await pool.getConnection();
@@ -89,7 +85,7 @@ app.get('/api/test', async (req, res) => { /* ... (no change) ... */
         if (conn) conn.release();
     }
 });
-app.get('/api/airports', async (req, res) => { /* ... (no change) ... */
+app.get('/api/airports', async (req, res) => {
     const searchQuery = req.query.q;
     if (!searchQuery) return res.json([]);
     let conn;
@@ -113,18 +109,17 @@ app.get('/api/airports', async (req, res) => { /* ... (no change) ... */
 });
 
 /**
- * @route GET /api/routes
- * @desc Fetch flight routes, merge with local data, calculate scores, and sort.
+ * @route 
+ * @desc 
  */
 app.get('/api/routes', async (req, res) => {
-    // --- UPDATED: Get all new params ---
     const { 
         from: fromIata, 
         to: toIata, 
         priority = 'cheapest', 
         days_left: daysLeft, 
         min_comfort: minComfort,
-        class: flightClass = 'Economy' // Default to Economy
+        class: flightClass = 'Economy' 
     } = req.query;
 
     if (!fromIata || !toIata || !daysLeft) {
@@ -138,28 +133,28 @@ app.get('/api/routes', async (req, res) => {
 
     let conn;
     try {
-        // 1. Get airport data (lat/lon, comfort) and fuel factor from MariaDB
         conn = await pool.getConnection();
 
-        // --- NEW: Comfort Query using MariaDB JSON_VALUE ---
         const comfortQuery = (minComfortNum > 0) 
             ? `AND JSON_VALUE(metadata, '$.comfortScore') >= ${minComfortNum}`
             : "";
 
         const [originRows] = await conn.query(`SELECT latitude, longitude, metadata FROM airports WHERE iata = ? ${comfortQuery}`, [fromIata]);
         const [destRows] = await conn.query(`SELECT latitude, longitude, metadata FROM airports WHERE iata = ? ${comfortQuery}`, [toIata]);
-        // --- END OF COMFORT QUERY ---
         
         const origin = originRows;
         const destination = destRows;
 
         if (!origin || !destination) {
             if (conn) conn.release();
-            let errorMsg = "Invalid 'from' or 'to' IATA code.";
-            if (!origin) errorMsg = `Origin airport ${fromIata} not found or does not meet comfort score of ${minComfortNum}+.`;
-            if (!destination) errorMsg = `Destination airport ${toIata} not found or does not meet comfort score of ${minComfortNum}+.`;
-            return res.status(404).json({ message: errorMsg });
+            let errorMsg = "No flights found (search criteria mismatch): ";
+            if (!origin) errorMsg += `Origin airport ${fromIata} not found or does not meet comfort score of ${minComfortNum}+. `;
+            if (!destination) errorMsg += `Destination airport ${toIata} not found or does not meet comfort score of ${minComfortNum}+.`;
+            
+            console.warn(errorMsg);
+            return res.json([]); 
         }
+
 
         const distanceKm = haversine(origin.latitude, origin.longitude, destination.latitude, destination.longitude);
         const [routeInfoRows] = await conn.query(`
@@ -173,7 +168,7 @@ app.get('/api/routes', async (req, res) => {
         if (conn) conn.release();
         conn = null;
 
-        // 2. Call AviationStack API
+        //  Call AviationStack API
         const apiParams = {
             access_key: AVIATIONSTACK_KEY,
             dep_iata: fromIata,
@@ -191,15 +186,12 @@ app.get('/api/routes', async (req, res) => {
         let processedFlights = [];
         if (apiData.data && apiData.data.length > 0) {
             apiData.data.forEach((flight, i) => {
-                // 3. Merge API data with calculated/mocked data
                 const baseDuration = (distanceKm / 800) + Math.random() * 2;
                 
-                // --- MOCK COST IN INR with Class Multiplier ---
-                const baseCost = distanceKm * (Math.random() * (10 - 6) + 6); // Base Economy price in INR
+                const baseCost = distanceKm * (Math.random() * (10 - 6) + 6);
                 const classMultiplier = CLASS_COST_MULTIPLIER[flightClass] || 1.0;
                 const finalCost = baseCost * classMultiplier;
                 
-                // --- CALCULATE REAL CO2 ---
                 const ecoMultiplier = CLASS_ECO_MULTIPLIER[flightClass] || 1.0;
                 const co2_kg = distanceKm * CO2_PER_KM_FACTOR * avgFuelFactor * ecoMultiplier;
 
@@ -210,34 +202,34 @@ app.get('/api/routes', async (req, res) => {
                     departure_time: flight.departure?.scheduled || 'N/A',
                     arrival_time: flight.arrival?.scheduled || 'N/A',
                     duration_hours: Math.round(baseDuration * 10) / 10,
-                    cost_inr: Math.round(finalCost), // --- CHANGED TO cost_inr ---
-                    co2_kg: Math.round(co2_kg), // --- CHANGED TO co2_kg ---
+                    cost_inr: Math.round(finalCost), 
+                    co2_kg: Math.round(co2_kg), 
                     origin_comfort_score: origin.metadata?.comfortScore || 4.0,
                     dest_comfort_score: destination.metadata?.comfortScore || 4.0,
 
-                    // --- Fields needed for prediction service (NOW REAL) ---
+                    --
                     Source: fromIata,
                     Destination: toIata,
-                    Class: flightClass, // --- USE REAL CLASS ---
-                    Days_left: daysLeftNum, // --- USE REAL daysLeftNum ---
-                    Total_stops_Num: 0 // Hardcoded default
+                    Class: flightClass, 
+                    Days_left: daysLeftNum, 
+                    Total_stops_Num: 0 
                 });
             });
         }
 
-        // 4. Sort results based on priority
+        // Sort results based on priority
         if (priority === 'shortest') {
             processedFlights.sort((a, b) => a.duration_hours - b.duration_hours);
         } else if (priority === 'eco') {
             processedFlights.sort((a, b) => a.co2_kg - b.co2_kg); // --- SORT BY co2_kg ---
-        } else { // Default to 'cheapest'
+        } else { '
             processedFlights.sort((a, b) => a.cost_inr - b.cost_inr); // --- SORT BY cost_inr ---
         }
 
-        // 5. Log search analytics (asynchronously)
+        // Log search analytics 
         logSearchAnalytics(fromIata, toIata, priority, processedFlights);
 
-        // 6. Send response
+        // Send response
         res.json(processedFlights.slice(0, 10));
 
     } catch (err) {
@@ -250,8 +242,8 @@ app.get('/api/routes', async (req, res) => {
 });
 
 /**
- * @route GET /api/insights/busiest-routes
- * @desc Get the top 5 most searched routes from logs.
+ * @route 
+ * @desc 
  */
 app.get('/api/insights/busiest-routes', async (req, res) => {
     let conn;
@@ -275,8 +267,8 @@ app.get('/api/insights/busiest-routes', async (req, res) => {
 });
 
 /**
- * @route POST /api/predict-fare
- * @desc Proxy endpoint to call the Python ML prediction service.
+ * @route 
+ * @desc 
  */
 app.post('/api/predict-fare', async (req, res) => {
     const flightData = req.body;
@@ -285,19 +277,18 @@ app.post('/api/predict-fare', async (req, res) => {
     }
 
     try {
-        // Call Python prediction service (running on port 5001)
+        
         const predictionServiceUrl = 'http://127.0.0.1:5001/predict';
         const response = await axios.post(predictionServiceUrl, flightData);
-        res.json(response.data); // Forward response
+        res.json(response.data); 
     } catch (error) {
-        // Log detailed error from the prediction service if available
         const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
         console.error("Error calling prediction service:", errorMsg);
         res.status(500).json({ error: `Failed to get prediction from ML service. ${errorMsg}` });
     }
 });
 
-// --- Start Server ---
+
 app.listen(port, () => {
     console.log(`Main backend server running on http://localhost:${port}`);
     if (!AVIATIONSTACK_KEY) {
