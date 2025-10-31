@@ -1,6 +1,6 @@
 (() => {
   
-  const API_BASE = '/api';
+  const API_BASE = 'http://127.0.0.1:5000/api';
   let chartInstance = null;
   const USD_TO_INR_RATE = 83;
 
